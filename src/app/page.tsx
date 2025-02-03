@@ -12,14 +12,14 @@ export default function Home() {
     <div className="h-full">
 
       <div className="h-full w-40 pl-2 py-2 relative z-10">
-        <div className="bg-black h-full w-full rounded-md flex flex-col gap-5 py-5">
+        <div className="bg-black/80 backdrop-blur-xl h-full w-full rounded-md flex flex-col gap-5 py-5">
 
           <div className="text-white w-full flex flex-col items-center select-none">
             Dimensione
             <div className="flex items-center justify-center gap-2">
-              <div className="border border-white px-2 py-px flex items-center justify-center rounded-md cursor-pointer" onClick={() => setWb(new whiteBoard(wb.radius-2, wb.story))}>-</div>
+              <div className="border border-white px-2 py-px flex items-center justify-center rounded-md cursor-pointer" onClick={() => setWb(new whiteBoard(wb.radius-2, wb.story, color))}>-</div>
               {wb.radius}
-              <div className="border border-white px-2 py-px flex items-center justify-center rounded-md cursor-pointer" onClick={() => {setWb(new whiteBoard(wb.radius+2, wb.story))}}>+</div>
+              <div className="border border-white px-2 py-px flex items-center justify-center rounded-md cursor-pointer" onClick={() => {setWb(new whiteBoard(wb.radius+2, wb.story, color))}}>+</div>
             </div>
           </div>
 
@@ -37,7 +37,7 @@ export default function Home() {
         </div>
       </div>
 
-      <Canvas draw={(ctx: CanvasRenderingContext2D, e: {clientX: number; clientY: number;}, active: boolean, cameraPosition: {X: number, Y: number}) => wb.drawDotLine(ctx, e, active, cameraPosition)} whiteboard={wb} className={"absolute top-0 left-0"} linewidth={wb.radius*2} color={color}/>
+      <Canvas draw={(ctx: CanvasRenderingContext2D, e: {clientX: number; clientY: number;}, active: boolean, cameraPosition: {X: number, Y: number}) => wb.drawDotLine(ctx, e, active, cameraPosition)} whiteboard={wb} className={"absolute top-0 left-0 touch-none"} linewidth={wb.radius*2} color={color}/>
     </div>
   );
 }

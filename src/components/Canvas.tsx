@@ -8,7 +8,7 @@ const Canvas = (props: { linewidth: number; draw: (ctx: CanvasRenderingContext2D
 
     const bind = useWheel((e) => (
         console.log(cameraPosition), 
-        setCameraPosition({X: cameraPosition.X + (e.direction[0] * e.velocity[0] * 5), Y: cameraPosition.Y + (e.direction[1] * e.velocity[1] * 5)})));
+        setCameraPosition({X: cameraPosition.X + (e.direction[0] * e.velocity[0] * 10), Y: cameraPosition.Y + (e.direction[1] * e.velocity[1] * 10)})));
 
     const [cameraPosition, setCameraPosition] = useState({X: 0, Y: 0});
     const [mousePosition, setMousePosition] = useState<{clientX: number, clientY: number}>({clientX: 0, clientY: 0});
@@ -28,7 +28,7 @@ const Canvas = (props: { linewidth: number; draw: (ctx: CanvasRenderingContext2D
         setDrawOn(false);
     }
 
-    return <canvas ref={canvasRef} {...props} onMouseDown={engage} onMouseUp={disengage} onMouseMoveCapture={(e: {clientX: number, clientY: number}) => setMousePosition(e)} {...bind()}></canvas>
+    return <canvas ref={canvasRef} className={props.className} onMouseDown={engage} onMouseUp={disengage} onMouseMoveCapture={(e: {clientX: number, clientY: number}) => setMousePosition(e)} {...bind()}></canvas>
 }
 
 export default Canvas;

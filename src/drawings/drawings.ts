@@ -82,6 +82,12 @@ export class whiteBoard {
     drawStory(ctx: CanvasRenderingContext2D, cameraPosition: {X: number, Y: number}) {
 
         this.story.forEach(el => {
+            
+            if(!((cameraPosition.X - 400 <= el.position.clientX && cameraPosition.X + 400 + window.innerWidth >= el.position.clientX) &&
+                (cameraPosition.Y - 400 <= el.position.clientY && cameraPosition.Y + 400 + window.innerHeight >= el.position.clientY))
+            ) {
+                this.drawDotLineMoving(ctx, {clientX: 0, clientY: 0}, false, el.radius);
+            }
 
             ctx.strokeStyle = el.color;
             ctx.fillStyle = el.color;
