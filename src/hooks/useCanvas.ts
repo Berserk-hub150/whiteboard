@@ -22,14 +22,17 @@ const useCanvas = (
         context.lineWidth = lineWidth;
         let animationFrameId: number;
 
-        if(scalePrev.current != scale) {
-            context.scale(2, 2)
-            scalePrev.current = scale
-        }
-
-        if(cameraPos.current != cameraPosition) {
+        if(cameraPos.current != cameraPosition || scalePrev.current != scale) {
+            if(scalePrev.current != scale) {
+                if(scalePrev.current < scale)
+                    context.scale(1.25, 1.25)
+                else 
+                    context.scale(0.8, 0.8)
+                scalePrev.current = scale
+                console.log("different scale");
+            }
             cameraPos.current = cameraPosition;
-            context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+            context.clearRect(0, 0, window.innerWidth * 1 / scale, window.innerHeight * 1 / scale);
             console.log("different");
 
             const render = () => {

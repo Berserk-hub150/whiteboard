@@ -6,9 +6,8 @@ import { whiteBoard } from '@/drawings/drawings';
 
 const Canvas = (props: { draw: (ctx: CanvasRenderingContext2D, e: { clientX: number, clientY: number }, active: boolean, cameraPosition: {X: number, Y: number}) => void; className: string, whiteboard: whiteBoard}) => {
 
-    const bind = useWheel((e) => (
-        console.log(cameraPosition), 
-        setCameraPosition({X: cameraPosition.X + (e.direction[0] * e.velocity[0] * 10), Y: cameraPosition.Y + (e.direction[1] * e.velocity[1] * 10)})));
+    const bind = useWheel((e) => ( 
+        setCameraPosition({X: cameraPosition.X + (e.direction[0] * e.velocity[0] * 10 * 1 / props.whiteboard.scale), Y: cameraPosition.Y + (e.direction[1] * e.velocity[1] * 10 * 1 / props.whiteboard.scale) })));
 
     const [cameraPosition, setCameraPosition] = useState({X: 0, Y: 0});
     const [mousePosition, setMousePosition] = useState<{clientX: number, clientY: number}>({clientX: 0, clientY: 0});

@@ -2,7 +2,8 @@
 export class whiteBoard {
     radius: number;
     color: string = "black";
-    scale: number = 100;
+    scale: number = 1.0;
+    prevScale: number = 1.0;
 
     story: [{position: {clientX: number, clientY: number}, active: boolean, radius: number, color: string}];
 
@@ -10,12 +11,14 @@ export class whiteBoard {
         radius: number, 
         story: [{position: {clientX: number, clientY: number}, active: boolean, radius: number, color: string}] = [{position: {clientX: 0, clientY: 0}, active: false, radius: 0, color: this.color}],
         color: string = "black",
-        scale: number = 1.0
+        scale: number = 1.0,
+        prevScale: number = this.prevScale
     ) {
         this.radius = radius;
         this.story = story;
         this.color = color;
         this.scale = scale;
+        this.prevScale = prevScale;
     }
 
     drawDotLine(ctx: CanvasRenderingContext2D, e: {clientX: number, clientY: number}, active: boolean, cameraPosition: {X: number, Y: number}) {
@@ -29,8 +32,8 @@ export class whiteBoard {
 
         this.story.push(
             {position: {
-                clientX: e.clientX + parseInt(cameraPosition.X.toFixed(0)),
-                clientY: e.clientY + parseInt(cameraPosition.Y.toFixed(0))
+                clientX: e.clientX * 1 / this.scale + parseInt(cameraPosition.X.toFixed(0)),
+                clientY: e.clientY * 1 / this.scale + parseInt(cameraPosition.Y.toFixed(0))
             }, 
             active: active,
             radius: this.radius,
@@ -38,13 +41,13 @@ export class whiteBoard {
             }
         );
         
-        ctx.lineTo(e.clientX, e.clientY);
+        ctx.lineTo(e.clientX * 1 / this.scale, e.clientY * 1 / this.scale);
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(e.clientX, e.clientY, this.radius, 0, Math.PI*2);
+        ctx.arc(e.clientX * 1 / this.scale, e.clientY * 1 / this.scale, this.radius, 0, Math.PI*2);
         ctx.fill();
         ctx.beginPath();
-        ctx.moveTo(e.clientX, e.clientY);
+        ctx.moveTo(e.clientX * 1 / this.scale, e.clientY * 1 / this.scale);
     }
 
     drawDotLineMoving(ctx: CanvasRenderingContext2D, e: {clientX: number, clientY: number}, active: boolean, radius: number) {
@@ -103,7 +106,7 @@ export class whiteBoard {
     }
 
     isInside(cameraPosition: {X: number, Y: number}, el: {clientX: number, clientY: number}): boolean {
-        return ((cameraPosition.X - 300 <= el.clientX && cameraPosition.X + 300 + window.innerWidth >= el.clientX) &&
-        (cameraPosition.Y - 300 <= el.clientY && cameraPosition.Y + 300 + window.innerHeight >= el.clientY));
+        return ((cameraPosition.X - 300 <= el.clientX && cameraPosition.X + 300 + window.innerWidth * 1 / this.scale >= el.clientX) &&
+        (cameraPosition.Y - 300 <= el.clientY && cameraPosition.Y + 300 + window.innerHeight * 1 / this.scale >= el.clientY));
     }
 }
