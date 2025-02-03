@@ -2,17 +2,20 @@
 export class whiteBoard {
     radius: number;
     color: string = "black";
+    scale: number = 100;
 
     story: [{position: {clientX: number, clientY: number}, active: boolean, radius: number, color: string}];
 
     constructor(
         radius: number, 
         story: [{position: {clientX: number, clientY: number}, active: boolean, radius: number, color: string}] = [{position: {clientX: 0, clientY: 0}, active: false, radius: 0, color: this.color}],
-        color: string = "black"
+        color: string = "black",
+        scale: number = 1.0
     ) {
         this.radius = radius;
         this.story = story;
         this.color = color;
+        this.scale = scale;
     }
 
     drawDotLine(ctx: CanvasRenderingContext2D, e: {clientX: number, clientY: number}, active: boolean, cameraPosition: {X: number, Y: number}) {
@@ -83,21 +86,24 @@ export class whiteBoard {
 
         this.story.forEach(el => {
             
-            if(!((cameraPosition.X - 400 <= el.position.clientX && cameraPosition.X + 400 + window.innerWidth >= el.position.clientX) &&
-                (cameraPosition.Y - 400 <= el.position.clientY && cameraPosition.Y + 400 + window.innerHeight >= el.position.clientY))
-            ) {
+            if(!this.isInside(cameraPosition, el.position)) {
                 this.drawDotLineMoving(ctx, {clientX: 0, clientY: 0}, false, el.radius);
+                return;
             }
 
             ctx.strokeStyle = el.color;
             ctx.fillStyle = el.color;
-            ctx.lineWidth = el.radius*2;
             this.drawDotLineMoving(
                 ctx, 
-                {clientX: el.position.clientX - parseInt(cameraPosition.X.toFixed(0)), clientY: el.position.clientY - parseInt(cameraPosition.Y.toFixed(0))}, 
+                {clientX: (el.position.clientX - this.radius * this.scale) - parseInt(cameraPosition.X.toFixed(0)), clientY: (el.position.clientY - this.radius * this.scale) - parseInt(cameraPosition.Y.toFixed(0))}, 
                 el.active,
                 el.radius
             )
         });
+    }
+
+    isInside(cameraPosition: {X: number, Y: number}, el: {clientX: number, clientY: number}): boolean {
+        return ((cameraPosition.X - 300 <= el.clientX && cameraPosition.X + 300 + window.innerWidth >= el.clientX) &&
+        (cameraPosition.Y - 300 <= el.clientY && cameraPosition.Y + 300 + window.innerHeight >= el.clientY));
     }
 }

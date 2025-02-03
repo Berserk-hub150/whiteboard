@@ -5,11 +5,13 @@ const useCanvas = (
     lineWidth: number, 
     cameraPosition: {X: number, Y: number},
     drawStory: (context: CanvasRenderingContext2D) => void,
-    color: string
+    color: string,
+    scale: number
     ) => {
 
     const canvasRef = useRef(null);
     const cameraPos = useRef(cameraPosition);
+    const scalePrev = useRef(scale)
 
     useEffect(() => {
 
@@ -20,7 +22,12 @@ const useCanvas = (
         context.lineWidth = lineWidth;
         let animationFrameId: number;
 
-        if(cameraPos.current != cameraPosition ) {
+        if(scalePrev.current != scale) {
+            context.scale(2, 2)
+            scalePrev.current = scale
+        }
+
+        if(cameraPos.current != cameraPosition) {
             cameraPos.current = cameraPosition;
             context.clearRect(0, 0, window.innerWidth, window.innerHeight);
             console.log("different");
@@ -46,7 +53,7 @@ const useCanvas = (
         return () => {
             window.cancelAnimationFrame(animationFrameId);
         }
-    }, [draw, cameraPos, cameraPosition, drawStory, lineWidth, color]);
+    }, [draw, cameraPos, cameraPosition, drawStory, lineWidth, color, scale]);
 
     useEffect(() => {
         const canvas = canvasRef.current;

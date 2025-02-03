@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useWheel } from '@use-gesture/react';
 import { whiteBoard } from '@/drawings/drawings';
 
-const Canvas = (props: { linewidth: number; draw: (ctx: CanvasRenderingContext2D, e: { clientX: number, clientY: number }, active: boolean, cameraPosition: {X: number, Y: number}) => void; className: string, whiteboard: whiteBoard, color: string}) => {
+const Canvas = (props: { draw: (ctx: CanvasRenderingContext2D, e: { clientX: number, clientY: number }, active: boolean, cameraPosition: {X: number, Y: number}) => void; className: string, whiteboard: whiteBoard}) => {
 
     const bind = useWheel((e) => (
         console.log(cameraPosition), 
@@ -18,7 +18,7 @@ const Canvas = (props: { linewidth: number; draw: (ctx: CanvasRenderingContext2D
         draw: (ctx: CanvasRenderingContext2D, e: { clientX: number, clientY: number }, active: boolean, cameraPosition: {X: number, Y: number}) => void,
     } = props;
     
-    const canvasRef = useCanvas((ctx: CanvasRenderingContext2D) => draw(ctx, mousePosition, drawOn, cameraPosition), props.linewidth, cameraPosition, (ctx: CanvasRenderingContext2D) => props.whiteboard.drawStory(ctx, cameraPosition), props.color);
+    const canvasRef = useCanvas((ctx: CanvasRenderingContext2D) => draw(ctx, mousePosition, drawOn, cameraPosition), props.whiteboard.radius*2, cameraPosition, (ctx: CanvasRenderingContext2D) => props.whiteboard.drawStory(ctx, cameraPosition), props.whiteboard.color, props.whiteboard.scale);
 
     function engage() {
         setDrawOn(true);
