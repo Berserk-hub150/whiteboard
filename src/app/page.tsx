@@ -32,6 +32,16 @@ export default function Home() {
             </div>
           </div>
 
+          <div className="text-white w-full flex flex-col items-center select-none">
+            Sfondo
+            <div className="flex items-center justify-center gap-2 h-6">
+              <div onClick={() => setWb(wb.newWhiteBoardBgColor("black"))} className={`bg-black border border-white cursor-pointer w-5 h-5 rounded-full ${wb.bgColor == "black" ? "scale-105" : ""} transition-all duration-300 ease-in-out`} />
+              <div onClick={() => setWb(wb.newWhiteBoardBgColor("white"))} className={`bg-white border border-white cursor-pointer w-5 h-5 rounded-full ${wb.bgColor == "white" ? "scale-105" : ""} transition-all duration-300 ease-in-out`} />
+              <div onClick={() => setWb(wb.newWhiteBoardBgColor("red"))} className={`bg-red-600 border border-white cursor-pointer w-5 h-5 rounded-full ${wb.bgColor == "red" ? "scale-105" : ""} transition-all duration-300 ease-in-out`} />
+              <div onClick={() => setWb(wb.newWhiteBoardBgColor("blue"))} className={`bg-blue-600 border border-white cursor-pointer w-5 h-5 rounded-full ${wb.bgColor == "blue" ? "scale-105" : ""} transition-all duration-300 ease-in-out`} />
+            </div>
+          </div>
+
 
           <div className="text-white w-full flex flex-col items-center select-none">
             Zoom
@@ -44,7 +54,7 @@ export default function Home() {
 
           <div className="text-white w-full flex flex-col items-center select-none">
             Gomma
-            <div onClick={() => setWb(wb.newWhiteBoardEreaser(!wb.ereaser))} className="flex items-center justify-center gap-2 bg-white text-black px-3 rounded-md">
+            <div onClick={() => setWb(wb.newWhiteBoardEreaser(!wb.ereaser))} className="flex items-center justify-center gap-2 bg-white text-black px-3 rounded-md cursor-pointer">
               {wb.ereaser? "Attivo" : "Non Attivo"}
             </div>
           </div>
@@ -53,7 +63,7 @@ export default function Home() {
         </div>
       </div>
 
-      <Canvas draw={(ctx: CanvasRenderingContext2D, e: {clientX: number; clientY: number;}, active: boolean, cameraPosition: {X: number, Y: number}) => wb.drawDotLine(ctx, e, active, cameraPosition)} whiteboard={wb} className={"absolute top-0 left-0 touch-none w-full"}/>
+      <Canvas draw={(ctx: CanvasRenderingContext2D, e: {clientX: number; clientY: number;}, active: boolean, cameraPosition: {X: number, Y: number}) => wb.drawDotLine(ctx, e, active, cameraPosition)} whiteboard={wb} className={`absolute top-0 left-0 touch-none w-full bg-[${wb.bgColor}]-500`} style={wb.bgColor} />
     </div>
   );
 }

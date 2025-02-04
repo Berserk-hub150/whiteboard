@@ -1,3 +1,4 @@
+import { whiteBoard } from '@/drawings/drawings';
 import { useRef, useEffect } from 'react';
 
 const useCanvas = (
@@ -5,13 +6,13 @@ const useCanvas = (
     lineWidth: number, 
     cameraPosition: {X: number, Y: number},
     drawStory: (context: CanvasRenderingContext2D) => void,
-    color: string,
-    scale: number
+    wb: whiteBoard
     ) => {
 
     const canvasRef = useRef(null);
     const cameraPos = useRef(cameraPosition);
-    const scalePrev = useRef(scale)
+    const scalePrev = useRef(wb.scale)
+    const bgColorPrev = useRef(wb.bgColor);
 
     useEffect(() => {
         if(canvasRef.current == null)
@@ -20,22 +21,23 @@ const useCanvas = (
         const context: CanvasRenderingContext2D | null = canvas.getContext("2d");
         if(context == null)
             return;
-        context.fillStyle = color;
-        context.strokeStyle = color;
+        context.fillStyle = wb.color;
+        context.strokeStyle = wb.color;
         context.lineWidth = lineWidth;
         let animationFrameId: number;
 
-        if(cameraPos.current != cameraPosition || scalePrev.current != scale) {
-            if(scalePrev.current != scale) {
-                if(scalePrev.current < scale)
+        if(cameraPos.current != cameraPosition || scalePrev.current != wb.scale || bgColorPrev.current != wb.bgColor) {
+            if(scalePrev.current != wb.scale) {
+                if(scalePrev.current < wb.scale)
                     context.scale(1.25, 1.25)
                 else 
                     context.scale(0.8, 0.8)
-                scalePrev.current = scale
+                scalePrev.current = wb.scale
                 console.log("different scale");
             }
             cameraPos.current = cameraPosition;
-            context.clearRect(0, 0, window.innerWidth * 1 / scale, window.innerHeight * 1 / scale);
+            bgColorPrev.current = wb.bgColor;
+            context.clearRect(0, 0, window.innerWidth * 1 / wb.scale, window.innerHeight * 1 / wb.scale);
             console.log("different");
 
             const render = () => {
@@ -59,7 +61,7 @@ const useCanvas = (
         return () => {
             window.cancelAnimationFrame(animationFrameId);
         }
-    }, [draw, cameraPos, cameraPosition, drawStory, lineWidth, color, scale]);
+    }, [draw, cameraPos, cameraPosition, drawStory, lineWidth, wb.color, wb.scale, wb.bgColor]);
 
     useEffect(() => {
         if(canvasRef.current == null)

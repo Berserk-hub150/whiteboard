@@ -78,13 +78,13 @@ export class whiteBoard {
         ctx.moveTo(e.clientX * 1 / this.scale, e.clientY * 1 / this.scale);
     }
 
-    drawDotLineMoving(ctx: CanvasRenderingContext2D, e: {clientX: number, clientY: number}, active: boolean, radius: number) {
+    drawDotLineMoving(ctx: CanvasRenderingContext2D, e: {clientX: number, clientY: number}, active: boolean, radius: number, ereaser: boolean) {
         if(!active){
             ctx.beginPath();
             return;
         }
         
-        if(this.ereaser) {
+        if(ereaser) {
             ctx.fillStyle = this.bgColor;
             ctx.strokeStyle = this.bgColor;
         }
@@ -124,7 +124,7 @@ export class whiteBoard {
         this.story.forEach(el => {
             
             if(!this.isInside(cameraPosition, el.position)) {
-                this.drawDotLineMoving(ctx, {clientX: 0, clientY: 0}, false, el.radius);
+                this.drawDotLineMoving(ctx, {clientX: 0, clientY: 0}, false, el.radius, el.ereaser);
                 return;
             }
 
@@ -135,7 +135,8 @@ export class whiteBoard {
                 ctx, 
                 {clientX: el.position.clientX  - parseInt(cameraPosition.X.toFixed(0)), clientY: el.position.clientY - parseInt(cameraPosition.Y.toFixed(0))}, 
                 el.active,
-                el.radius
+                el.radius,
+                el.ereaser
             )
         });
     }
