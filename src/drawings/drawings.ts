@@ -1,24 +1,46 @@
 
 export class whiteBoard {
     radius: number;
-    color: string = "black";
-    scale: number = 1.0;
-    prevScale: number = 1.0;
-
-    story: [{position: {clientX: number, clientY: number}, active: boolean, radius: number, color: string}];
+    color: string;
+    bgColor: string;
+    ereaser: boolean;
+    scale: number;
+    story: storyType;
 
     constructor(
         radius: number, 
-        story: [{position: {clientX: number, clientY: number}, active: boolean, radius: number, color: string}] = [{position: {clientX: 0, clientY: 0}, active: false, radius: 0, color: this.color}],
+        story: storyType = [{position: {clientX: 0, clientY: 0}, active: false, radius: 0, color: "black", ereaser: false}],
         color: string = "black",
         scale: number = 1.0,
-        prevScale: number = this.prevScale
+        ereaser: boolean = false,
+        bgColor: string = "white"
     ) {
         this.radius = radius;
         this.story = story;
         this.color = color;
         this.scale = scale;
-        this.prevScale = prevScale;
+        this.ereaser = ereaser;
+        this.bgColor = bgColor;
+    }
+
+    newWhiteBoardRadius(radius: number) {
+        return new whiteBoard(radius, this.story, this.color, this.scale, this.ereaser, this.bgColor)
+    }
+
+    newWhiteBoardColor(color: string) {
+        return new whiteBoard(this.radius, this.story, color, this.scale, this.ereaser, this.bgColor)
+    }
+
+    newWhiteBoardScale(scale: number) {
+        return new whiteBoard(this.radius, this.story, this.color, scale, this.ereaser, this.bgColor)
+    }
+
+    newWhiteBoardEreaser(ereaser: boolean) {
+        return new whiteBoard(this.radius, this.story, this.color, this.scale, ereaser, this.bgColor)
+    }
+
+    newWhiteBoardBgColor(bgColor: string) {
+        return new whiteBoard(this.radius, this.story, this.color, this.scale, this.ereaser, bgColor)
     }
 
     drawDotLine(ctx: CanvasRenderingContext2D, e: {clientX: number, clientY: number}, active: boolean, cameraPosition: {X: number, Y: number}) {
@@ -26,7 +48,7 @@ export class whiteBoard {
             ctx.beginPath();
 
             if(this.story[this.story.length-1].active)
-                this.story.push({position: {clientX: 0, clientY: 0}, active: false, radius: 0, color: this.color});
+                this.story.push({position: {clientX: 0, clientY: 0}, active: false, radius: 0, color: this.color, ereaser: this.ereaser});
             return;
         }
 
@@ -37,9 +59,15 @@ export class whiteBoard {
             }, 
             active: active,
             radius: this.radius,
-            color: this.color
+            color: this.color,
+            ereaser: this.ereaser
             }
         );
+
+        if(this.ereaser) {
+            ctx.fillStyle = this.bgColor;
+            ctx.strokeStyle = this.bgColor;
+        }
         
         ctx.lineTo(e.clientX * 1 / this.scale, e.clientY * 1 / this.scale);
         ctx.stroke();
@@ -55,7 +83,12 @@ export class whiteBoard {
             ctx.beginPath();
             return;
         }
-      
+        
+        if(this.ereaser) {
+            ctx.fillStyle = this.bgColor;
+            ctx.strokeStyle = this.bgColor;
+        }
+
         ctx.lineTo(e.clientX, e.clientY);
         ctx.stroke();
         ctx.beginPath();
@@ -76,7 +109,8 @@ export class whiteBoard {
             }, 
             active: active,
             radius: this.radius,
-            color: this.color
+            color: this.color,
+            ereaser: this.ereaser
         }
         );
 
@@ -111,3 +145,5 @@ export class whiteBoard {
         (cameraPosition.Y - 300 <= el.clientY && cameraPosition.Y + 300 + window.innerHeight * 1 / this.scale >= el.clientY));
     }
 }
+
+type storyType = [{position: {clientX: number, clientY: number}, active: boolean, radius: number, color: string, ereaser: boolean}]

@@ -14,9 +14,12 @@ const useCanvas = (
     const scalePrev = useRef(scale)
 
     useEffect(() => {
-
-        const canvas = canvasRef.current;
-        const context: CanvasRenderingContext2D = canvas.getContext("2d");
+        if(canvasRef.current == null)
+            return;
+        const canvas: HTMLCanvasElement = canvasRef.current;
+        const context: CanvasRenderingContext2D | null = canvas.getContext("2d");
+        if(context == null)
+            return;
         context.fillStyle = color;
         context.strokeStyle = color;
         context.lineWidth = lineWidth;
@@ -59,8 +62,12 @@ const useCanvas = (
     }, [draw, cameraPos, cameraPosition, drawStory, lineWidth, color, scale]);
 
     useEffect(() => {
-        const canvas = canvasRef.current;
-        const context = canvas.getContext("2d");
+        if(canvasRef.current == null)
+            return;
+        const canvas: HTMLCanvasElement = canvasRef.current;
+        const context: CanvasRenderingContext2D | null = canvas.getContext("2d");
+        if(context == null)
+            return;
         context.canvas.height = window.innerHeight;
         context.canvas.width = window.innerWidth;
         context.lineWidth = lineWidth;
