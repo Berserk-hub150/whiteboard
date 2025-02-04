@@ -96,9 +96,10 @@ export class whiteBoard {
 
             ctx.strokeStyle = el.color;
             ctx.fillStyle = el.color;
+            ctx.lineWidth = el.radius*2;
             this.drawDotLineMoving(
                 ctx, 
-                {clientX: (el.position.clientX - this.radius * this.scale) - parseInt(cameraPosition.X.toFixed(0)), clientY: (el.position.clientY - this.radius * this.scale) - parseInt(cameraPosition.Y.toFixed(0))}, 
+                {clientX: el.position.clientX  - parseInt(cameraPosition.X.toFixed(0)), clientY: el.position.clientY - parseInt(cameraPosition.Y.toFixed(0))}, 
                 el.active,
                 el.radius
             )
