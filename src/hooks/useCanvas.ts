@@ -36,8 +36,10 @@ const useCanvas = (
                 console.log("different scale");
             }
             cameraPos.current = cameraPosition;
-            bgColorPrev.current = wb.bgColor;
+            bgColorPrev.current = wb.bgColor
             context.clearRect(0, 0, window.innerWidth * 1 / wb.scale, window.innerHeight * 1 / wb.scale);
+            context.fillStyle = wb.bgColor;
+            context.fillRect(0, 0, context.canvas.width, context.canvas.height);
             console.log("different");
 
             const render = () => {
@@ -61,7 +63,27 @@ const useCanvas = (
         return () => {
             window.cancelAnimationFrame(animationFrameId);
         }
-    }, [draw, cameraPos, cameraPosition, drawStory, lineWidth, wb.color, wb.scale, wb.bgColor]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [draw, cameraPos, cameraPosition, drawStory, lineWidth, wb.color, wb.scale]);
+
+    useEffect(() => {
+        if(!wb.save)
+            return;
+
+        if(canvasRef.current == null)
+            return;
+        const canvas: HTMLCanvasElement = canvasRef.current;
+        const context: CanvasRenderingContext2D | null = canvas.getContext("2d");
+        if(context == null)
+            return;
+
+        const data = canvas.toDataURL();
+
+        wb.updater(wb.newSave(false))
+        window.open(data, "Frame")
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [wb.save])
 
     useEffect(() => {
         if(canvasRef.current == null)
@@ -73,6 +95,8 @@ const useCanvas = (
         context.canvas.height = window.innerHeight;
         context.canvas.width = window.innerWidth;
         context.lineWidth = lineWidth;
+        context.fillStyle = wb.bgColor;
+        context.fillRect(0, 0, context.canvas.width, context.canvas.height);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
