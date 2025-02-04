@@ -39,7 +39,7 @@ const useCanvas = (
             bgColorPrev.current = wb.bgColor
             context.clearRect(0, 0, window.innerWidth * 1 / wb.scale, window.innerHeight * 1 / wb.scale);
             context.fillStyle = wb.bgColor;
-            context.fillRect(0, 0, context.canvas.width, context.canvas.height);
+            context.fillRect(0, 0, context.canvas.width * 1 / wb.scale, context.canvas.height * 1 / wb.scale);
             console.log("different");
 
             const render = () => {
