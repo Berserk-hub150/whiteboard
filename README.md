@@ -28,6 +28,9 @@ npm run typecheck
   dall'indirizzo, così un ricaricamento non la importa due volte. Le coordinate sono arrotondate al centesimo.
   Lavagne molto ricche generano link lunghi: oltre ~8 KB alcune app di messaggistica possono troncarli (l'app avvisa);
   oltre ~1,5 MB il link viene rifiutato e conviene l'export `.json`.
+- **Collaborazione in tempo reale (P2P)**: più persone disegnano sulla stessa lavagna via WebRTC, **senza server**. Pulsante
+  "Collabora" in alto a destra: si crea un link d'invito per persona, l'ospite risponde con un codice, e il canale si apre.
+  Cursori con nome, tratti visibili mentre vengono disegnati, undo/redo che annulla solo le *tue* azioni. Vedi sotto.
 - **Interfaccia**: pannelli "vetro" chiari o scuri secondo il tema del sistema, strumenti raggruppati con tooltip e
   scorciatoie, pannello proprietà contestuale, notifiche, layout adattato a mobile e touch.
 - Supporto mouse, touch e penna (Pointer Events), schermi HiDPI, ridimensionamento finestra.
@@ -60,12 +63,49 @@ src/components/  WhiteBoard (composizione), Canvas, TextEditor, Toolbar, Propert
                  BoardChip, BoardsDrawer, Toast, ui (design system)
 ```
 
+### Collaborazione P2P
+
+```
+src/engine/collab/
+  doc.ts          CRDT: una voce per elemento (versione di Lamport, sito, chiave d'ordine z, lapide); merge "ultima scrittura vince"
+  protocol.ts     validazione dei messaggi di rete (i peer non sono fidati), frammentazione, colori/nomi
+  signaling.ts    inviti e risposte: SDP compressa nel fragment dell'URL (#collab=…), mai inviata a un server
+  session.ts      mesh WebRTC: un canale dati per coppia, segnalazione assistita dai peer già collegati, backpressure
+  controller.ts   unisce documento, trasporto e presenza; si aggancia al motore tramite l'interfaccia CollabHost
+  validate.ts     validatori puri (usati anche da storage.ts)
+src/components/CollabDialog.tsx   interfaccia (avvio, inviti, partecipanti, privacy)
+```
+
+**Come si collega.** WebRTC ha bisogno che due browser si scambino un'offerta e una risposta. Senza server lo scambio è manuale:
+l'host crea un link d'invito, l'ospite lo apre e ottiene un codice di risposta, l'host lo incolla. È un passaggio per persona: dopo il
+primo collegamento, chi entra riceve l'elenco dei partecipanti e negozia le connessioni mancanti *attraverso* i canali già aperti
+(mesh completa). Tra schede dello stesso browser la risposta arriva da sola (BroadcastChannel).
+
+**Come converge.** Ogni modifica locale è confrontata con lo stato noto (gli elementi sono immutabili: basta confrontare i riferimenti)
+e diventa un'operazione. Il merge è commutativo e idempotente, quindi i peer convergono con messaggi in ritardo, duplicati o in disordine,
+e ogni peer inoltra agli altri solo ciò che ha cambiato il proprio stato (gossip senza cicli). Le cancellazioni sono lapidi, l'ordine z è
+una chiave frazionaria per elemento. Lo storico di undo/redo è ri-agganciato (`rebase`) al lavoro altrui: annulli le tue azioni, non quelle degli altri.
+Durante un trascinamento locale gli aggiornamenti remoti aspettano la fine del gesto.
+
+**Local-first.** Ogni partecipante tiene la propria copia in localStorage (con i metadati di sincronizzazione), anche offline. Se ricarichi
+la pagina la lavagna resta; basta un nuovo invito di chi è ancora nella stanza per riconnettersi e riunire le modifiche.
+Chi apre un invito ottiene una *nuova* lavagna nella libreria. "Esci dalla collaborazione" la rende di nuovo una lavagna normale.
+
+**Limiti e fiducia.**
+- Chi ha il link d'invito e risponde è un partecipante a pieno titolo (può modificare e cancellare): non c'è autenticazione.
+- Con una rete molto restrittiva (NAT simmetrico, firewall aziendali) il collegamento diretto può fallire senza un relay TURN, che qui non c'è.
+- Il server STUN pubblico (opzionale, attivo di default) vede l'IP, mai i contenuti. Disattivato, funziona solo nella stessa rete locale.
+- Una collaborazione è legata alla lavagna aperta: cambiando lavagna la sessione si chiude (si riprende con un nuovo invito).
+- Le lapidi non vengono ripulite: lavagne molto vecchie e molto editate crescono un po' nel tempo.
+- La chiave d'ordine z è un numero in virgola mobile: moltissimi inserimenti nello stesso punto esatto ne esauriscono la precisione.
+
 ### Dove finiscono i dati
 
 | Chiave localStorage | Contenuto |
 |---|---|
 | `whiteboard:index` | elenco lavagne (id, nome, date, anteprima) e lavagna corrente |
-| `whiteboard:board:<id>` | una lavagna: elementi, camera, sfondo, griglia |
+| `whiteboard:board:<id>` | una lavagna: elementi, camera, sfondo, griglia (e metadati di sincronizzazione se collaborativa) |
+| `whiteboard:collab` | nome visualizzato e preferenza STUN |
 
 localStorage ha un limite di pochi MB per sito: se si esaurisce, l'app continua a funzionare in memoria e lo segnala
 sotto il nome della lavagna. In quel caso esporta in `.json` ed elimina le lavagne che non servono.

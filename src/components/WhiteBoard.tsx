@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isDark } from "@/engine/render";
+import { readCollabHash } from "@/engine/collab/signaling";
 import { decodeBoard, readShareHash, SHARE_SOFT_LIMIT } from "@/engine/share";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
 import BoardChip from "./BoardChip";
 import BoardsDrawer from "./BoardsDrawer";
 import Canvas from "./Canvas";
+import CollabDialog from "./CollabDialog";
 import FileMenu from "./FileMenu";
 import PropertiesPanel from "./PropertiesPanel";
 import Toast, { type ToastMsg } from "./Toast";
@@ -28,6 +30,9 @@ const TIPS_TOUCH: Array<[string, string]> = [
 export default function WhiteBoard() {
   const { wb, ui } = useWhiteboard();
   const [library, setLibrary] = useState(false);
+  const [collabOpen, setCollabOpen] = useState(false);
+  /** Codice d'invito arrivato da un link `#collab=…`. */
+  const [invite, setInvite] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastMsg | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const toastId = useRef(0);
@@ -82,6 +87,21 @@ export default function WhiteBoard() {
     return () => window.removeEventListener("hashchange", onHash);
   }, [wb, notify]);
 
+  // Apertura di un link d'invito alla collaborazione: si propone l'unione, senza fare nulla da soli.
+  // Il fragment viene tolto subito, così un ricaricamento non lo ripropone.
+  useEffect(() => {
+    function openInvite() {
+      const code = readCollabHash();
+      if (!code) return;
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+      setInvite(code);
+      setCollabOpen(true);
+    }
+    openInvite();
+    window.addEventListener("hashchange", openInvite);
+    return () => window.removeEventListener("hashchange", openInvite);
+  }, []);
+
   async function onFile(file: File | undefined) {
     if (!file) return;
     const res = wb.importJSON(await file.text(), file.name);
@@ -116,6 +136,20 @@ export default function WhiteBoard() {
             {icons.redo}
           </Btn>
           <div className="mx-1 h-6 w-px bg-black/10 dark:bg-white/15" />
+          <Btn
+            label={ui.collab.mode === "off" ? "Collabora" : `Collaborazione: ${ui.collab.peers.length + 1} ${ui.collab.peers.length ? "persone" : "persona"}`}
+            active={ui.collab.mode !== "off"}
+            onClick={() => setCollabOpen(true)}
+          >
+            <span className="relative">
+              {icons.users}
+              {ui.collab.mode !== "off" && (
+                <span className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-white px-1 text-[10px] font-bold leading-none text-indigo-700">
+                  {ui.collab.peers.length + 1}
+                </span>
+              )}
+            </span>
+          </Btn>
           <ViewMenu wb={wb} ui={ui} />
           <FileMenu wb={wb} ui={ui} onImport={() => fileRef.current?.click()} onShare={() => void onShare()} />
         </div>
@@ -204,6 +238,20 @@ export default function WhiteBoard() {
           <Toast toast={toast} onDone={clearToast} />
         </div>
       </div>
+
+      {collabOpen && (
+        <CollabDialog
+          key={invite ?? "dialog"}
+          wb={wb}
+          ui={ui}
+          invite={invite}
+          onClose={() => {
+            setCollabOpen(false);
+            setInvite(null);
+          }}
+          notify={notify}
+        />
+      )}
 
       {library && <BoardsDrawer wb={wb} ui={ui} onClose={() => setLibrary(false)} onImport={() => fileRef.current?.click()} notify={notify} />}
 

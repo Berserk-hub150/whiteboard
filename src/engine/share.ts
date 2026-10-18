@@ -92,7 +92,7 @@ function unpackElement(p: unknown, index: number): unknown {
 
 /* ---------- base64url ---------- */
 
-function toBase64Url(bytes: Uint8Array): string {
+export function toBase64Url(bytes: Uint8Array): string {
   let bin = "";
   const CHUNK = 0x8000;
   for (let i = 0; i < bytes.length; i += CHUNK) {
@@ -101,7 +101,7 @@ function toBase64Url(bytes: Uint8Array): string {
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function fromBase64Url(s: string): Uint8Array {
+export function fromBase64Url(s: string): Uint8Array {
   const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
   const bin = atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4));
   const out = new Uint8Array(bin.length);
@@ -111,14 +111,14 @@ function fromBase64Url(s: string): Uint8Array {
 
 /* ---------- compressione ---------- */
 
-const hasStreams = () => typeof CompressionStream !== "undefined" && typeof DecompressionStream !== "undefined";
+export const hasStreams = () => typeof CompressionStream !== "undefined" && typeof DecompressionStream !== "undefined";
 
-async function deflate(data: Uint8Array): Promise<Uint8Array> {
+export async function deflate(data: Uint8Array): Promise<Uint8Array> {
   const stream = new Blob([data as BlobPart]).stream().pipeThrough(new CompressionStream("deflate-raw"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-async function inflate(data: Uint8Array): Promise<Uint8Array> {
+export async function inflate(data: Uint8Array): Promise<Uint8Array> {
   const stream = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];

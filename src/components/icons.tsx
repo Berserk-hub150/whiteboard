@@ -169,6 +169,13 @@ export const icons = {
       <path d="M14 3v5h5" />
     </Svg>
   ),
+  users: (
+    <Svg>
+      <path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20" />
+      <circle cx="10" cy="8" r="3.5" />
+      <path d="M20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35M15.5 4.65a3.5 3.5 0 0 1 0 6.7" />
+    </Svg>
+  ),
   close: (
     <Svg>
       <path d="M6 6l12 12M18 6L6 18" />

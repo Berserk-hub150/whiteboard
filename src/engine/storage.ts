@@ -1,3 +1,4 @@
+import { parseSaved } from "./collab/validate";
 import { MAX_ZOOM, MIN_ZOOM } from "./types";
 import type { BoardMeta, Camera, El, GridMode, PersistedBoard, Point } from "./types";
 
@@ -112,6 +113,7 @@ export function parseBoard(text: string): PersistedBoard | null {
     recentColors: Array.isArray(data.recentColors)
       ? data.recentColors.filter((c): c is string => typeof c === "string" && HEX.test(c)).slice(0, 8)
       : undefined,
+    collab: parseSaved(data.collab),
   };
 }
 

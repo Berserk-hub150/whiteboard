@@ -1,3 +1,5 @@
+import type { CollabSaved, CollabUI } from "./collab/types";
+
 export interface Point {
   x: number;
   y: number;
@@ -109,6 +111,8 @@ export interface UIState {
   boards: BoardMeta[];
   saveState: SaveState;
   lastSaved: number;
+  /* collaborazione P2P */
+  collab: CollabUI;
 }
 
 export interface BoardMeta {
@@ -133,6 +137,8 @@ export interface PersistedBoard {
   width?: number;
   fill?: boolean;
   recentColors?: string[];
+  /** Metadati di sincronizzazione, presenti solo se la lavagna è (o era) collaborativa. */
+  collab?: CollabSaved;
 }
 
 export const MIN_ZOOM = 0.05;

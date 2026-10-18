@@ -22,6 +22,7 @@ import {
   translateEl,
   unionRects,
 } from "./geometry";
+import { Collab, type CollabHost } from "./collab/controller";
 import { drawElement, drawElements, drawGrid, isDark } from "./render";
 import { buildShareUrl, SHARE_HARD_LIMIT } from "./share";
 import {
@@ -164,11 +165,19 @@ export class Whiteboard {
   /** Se true le scorciatoie da tastiera sono sospese (dialog aperti). */
   private paused = false;
 
+  /* ---- collaborazione P2P ---- */
+  private collab: Collab;
+  /** Valore di `collab.seq` quando uno snapshot di undo/redo è stato preso (vedi `Collab.rebase`). */
+  private snapSeq = new WeakMap<El[], number>();
+  /** Ultima posizione del puntatore in coordinate mondo (null: fuori dalla lavagna). */
+  private presenceCursor: Point | null = null;
+
   /* ---- store osservabile ---- */
   private listeners = new Set<() => void>();
   private snapshot: UIState;
 
   constructor() {
+    this.collab = new Collab(this.makeCollabHost());
     this.snapshot = this.buildSnapshot();
   }
 
@@ -230,6 +239,7 @@ export class Whiteboard {
       boards: this.boards,
       saveState: this.saveState,
       lastSaved: this.lastSaved,
+      collab: this.collab.ui,
     };
   }
 
@@ -270,6 +280,7 @@ export class Whiteboard {
     window.addEventListener("keyup", this.onKeyUp);
     window.addEventListener("blur", this.onWindowBlur);
     window.addEventListener("pagehide", this.flushSave);
+    window.addEventListener("pagehide", this.onPageHide);
     document.addEventListener("visibilitychange", this.onVisibility);
 
     this.updateCursor();
@@ -292,6 +303,7 @@ export class Whiteboard {
       window.removeEventListener("keyup", this.onKeyUp);
       window.removeEventListener("blur", this.onWindowBlur);
       window.removeEventListener("pagehide", this.flushSave);
+      window.removeEventListener("pagehide", this.onPageHide);
       document.removeEventListener("visibilitychange", this.onVisibility);
       if (this.raf) cancelAnimationFrame(this.raf);
       this.raf = 0;
@@ -362,6 +374,7 @@ export class Whiteboard {
     const view: Rect = { x, y, w: this.viewW / zoom, h: this.viewH / zoom };
     drawElements(ctx, this.elements, view, this.erasing, this.editing?.id ?? null, zoom);
     if (this.draft) drawElement(ctx, this.draft);
+    for (const r of this.collab.remote()) if (r.draft) drawElement(ctx, r.draft);
 
     // overlay (spazio schermo)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -441,6 +454,43 @@ export class Whiteboard {
         ctx.stroke();
       }
     }
+
+    this.drawRemoteCursors(ctx);
+  }
+
+  /** Cursori degli altri partecipanti, con il loro nome. */
+  private drawRemoteCursors(ctx: CanvasRenderingContext2D): void {
+    const now = Date.now();
+    for (const r of this.collab.remote()) {
+      const c = r.cursor;
+      if (!c || now - c.t > 10_000) continue;
+      const s = this.toScreen(c);
+      if (s.x < -40 || s.y < -40 || s.x > this.viewW + 40 || s.y > this.viewH + 40) continue;
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.fillStyle = r.color;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.5;
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, 15);
+      ctx.lineTo(4, 11.5);
+      ctx.lineTo(7.5, 18);
+      ctx.lineTo(10.5, 16.5);
+      ctx.lineTo(7, 10.5);
+      ctx.lineTo(12, 10.5);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.fill();
+      ctx.font = "600 11px system-ui, -apple-system, sans-serif";
+      const w = ctx.measureText(r.name).width + 12;
+      ctx.fillRect(12, 17, w, 18);
+      ctx.fillStyle = "#ffffff";
+      ctx.textBaseline = "middle";
+      ctx.fillText(r.name, 18, 26.5);
+      ctx.restore();
+    }
   }
 
   private eraserRadiusPx(): number {
@@ -463,6 +513,7 @@ export class Whiteboard {
     }
     this.coalesceKey = key ?? null;
     this.coalesceAt = now;
+    this.snapSeq.set(before, this.collab.seq);
     this.past.push(before);
     if (this.past.length > HISTORY_LIMIT) this.past.shift();
     this.future = [];
@@ -472,8 +523,9 @@ export class Whiteboard {
     if (this.editing) this.finishEdit();
     const prev = this.past.pop();
     if (!prev) return;
+    this.snapSeq.set(this.elements, this.collab.seq);
     this.future.push(this.elements);
-    this.elements = prev;
+    this.elements = this.collab.rebase(prev, this.snapSeq.get(prev) ?? 0, this.elements);
     this.coalesceKey = null;
     this.afterRestore();
   };
@@ -482,8 +534,9 @@ export class Whiteboard {
     if (this.editing) this.finishEdit();
     const next = this.future.pop();
     if (!next) return;
+    this.snapSeq.set(this.elements, this.collab.seq);
     this.past.push(this.elements);
-    this.elements = next;
+    this.elements = this.collab.rebase(next, this.snapSeq.get(next) ?? 0, this.elements);
     this.coalesceKey = null;
     this.afterRestore();
   };
@@ -501,6 +554,7 @@ export class Whiteboard {
 
   /** Da chiamare dopo ogni modifica del documento. */
   private changed(): void {
+    this.collab.localChanged();
     this.requestRender();
     this.scheduleSave();
     this.emit();
@@ -863,6 +917,8 @@ export class Whiteboard {
     this.updateCursor();
     this.requestRender();
     this.emit();
+    this.collab.flush();
+    this.collab.ping();
   }
 
   /* ======================================================================
@@ -878,6 +934,8 @@ export class Whiteboard {
 
   private onPointerLeave = (e: PointerEvent): void => {
     if (this.action) return;
+    this.presenceCursor = null;
+    this.collab.ping();
     if (e.pointerType !== "touch") {
       this.hover = null;
       this.requestRender();
@@ -998,6 +1056,8 @@ export class Whiteboard {
     const p = this.screenPoint(e);
     if (e.pointerType !== "touch") this.hover = p;
     if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, p);
+    this.presenceCursor = this.toWorld(p);
+    this.collab.ping();
 
     if (this.gesture && this.pointers.size >= 2) {
       this.updateGesture();
@@ -1105,7 +1165,10 @@ export class Whiteboard {
     } catch {
       /* già rilasciato */
     }
-    if (e.pointerType === "touch") this.hover = null;
+    if (e.pointerType === "touch") {
+      this.hover = null;
+      this.presenceCursor = null;
+    }
 
     const a = this.action;
     if (!a || a.pid !== e.pointerId) {
@@ -1121,6 +1184,8 @@ export class Whiteboard {
     this.updateCursor(this.hover ?? undefined);
     this.requestRender();
     this.emit();
+    this.collab.flush();
+    this.collab.ping();
   }
 
   private finishAction(a: Action, e: PointerEvent): void {
@@ -1520,7 +1585,7 @@ export class Whiteboard {
     this.paused = paused;
   };
 
-  private serialize(): PersistedBoard {
+  private serialize(forStorage = false): PersistedBoard {
     return {
       version: 1,
       name: this.boardName,
@@ -1532,6 +1597,8 @@ export class Whiteboard {
       width: this.style.width,
       fill: this.style.fill,
       recentColors: this.recentColors,
+      // i metadati di sincronizzazione restano nel browser: mai in export, link o duplicati
+      collab: forStorage ? this.collab.save() : undefined,
     };
   }
 
@@ -1590,6 +1657,7 @@ export class Whiteboard {
   }
 
   private load(): void {
+    this.collab.init();
     let index = readIndex();
     if (!index) {
       // primo avvio, oppure migrazione dalla versione a lavagna singola
@@ -1627,6 +1695,7 @@ export class Whiteboard {
     this.boardName = meta.name;
     const data = readBoard(meta.id);
     if (data) this.applyBoard(data, true);
+    this.collab.load(data?.collab, this.elements);
     this.dirty = false;
     this.saveState = "saved";
     this.updateCursor();
@@ -1651,7 +1720,7 @@ export class Whiteboard {
     if (!this.loaded || !this.boardId || !this.dirty) return;
     this.dirty = false;
     try {
-      writeBoard(this.boardId, this.serialize());
+      writeBoard(this.boardId, this.serialize(true));
       this.patchMeta(this.boardId, { updatedAt: Date.now(), name: this.boardName });
       if (!this.persistIndex()) throw new Error("index");
       this.saveState = "saved";
@@ -1748,7 +1817,7 @@ export class Whiteboard {
       thumb: id === this.boardId ? this.makeThumb() : src.thumb,
     };
     try {
-      writeBoard(meta.id, { ...data, name: meta.name });
+      writeBoard(meta.id, { ...data, name: meta.name, collab: undefined });
     } catch {
       this.saveState = "error";
       this.emit();
@@ -1786,6 +1855,95 @@ export class Whiteboard {
   };
 
   /* ======================================================================
+   * Collaborazione in tempo reale (P2P, WebRTC)
+   * ==================================================================== */
+
+  private makeCollabHost(): CollabHost {
+    return {
+      getElements: () => this.elements,
+      getProps: () => ({ bgColor: this.bgColor, grid: this.grid }),
+      getBoardName: () => this.boardName,
+      getPresence: () => ({ cursor: this.presenceCursor, draft: this.draft }),
+      // durante un trascinamento locale `elements` viene ricalcolato da uno snapshot: gli aggiornamenti
+      // remoti aspettano la fine del gesto (vedi Collab.flush)
+      isBusy: () => this.action?.kind === "move" || this.action?.kind === "resize",
+      setRemoteState: (n) => this.setRemoteState(n),
+      invalidate: () => this.requestRender(),
+      emit: () => this.emit(),
+      persist: () => this.scheduleSave(),
+    };
+  }
+
+  /** Applica lo stato arrivato dagli altri partecipanti. Non entra nella history né viene rispedito. */
+  private setRemoteState(n: { elements?: El[]; bgColor?: string; grid?: GridMode; first?: boolean }): void {
+    if (n.elements) {
+      this.elements = n.elements;
+      this.pruneSelection();
+    }
+    if (n.bgColor) this.bgColor = n.bgColor;
+    if (n.grid) this.grid = n.grid;
+    if (n.first) this.zoomToFit();
+    this.requestRender();
+    this.scheduleSave();
+    this.emit();
+  }
+
+  private onPageHide = (e: PageTransitionEvent): void => {
+    if (!e.persisted) this.collab.farewell();
+  };
+
+  /** Rende collaborativa la lavagna corrente: da qui si possono creare inviti. */
+  startCollab = (name: string): { ok: true } | { ok: false; error: string } => {
+    if (this.editing) this.finishEdit();
+    return this.collab.startHost(name);
+  };
+
+  /** Crea un invito (link + codice) per una persona. */
+  createInvite = (): ReturnType<Collab["createInvite"]> => this.collab.createInvite();
+
+  /** L'host incolla il codice di risposta dell'ospite. */
+  acceptAnswer = (text: string): ReturnType<Collab["acceptAnswer"]> => this.collab.acceptAnswer(text);
+
+  /**
+   * L'ospite apre un invito. Se questa lavagna fa già parte di quella stanza si riconnette, altrimenti
+   * l'invito crea una NUOVA lavagna nella libreria (quella aperta non viene toccata né sincronizzata).
+   */
+  joinCollab = async (
+    text: string,
+    name: string,
+  ): Promise<{ ok: true; answer: string; resumed: boolean } | { ok: false; error: string }> => {
+    const inv = await Collab.parseInvite(text);
+    if (!inv) return { ok: false, error: "Invito non valido o danneggiato" };
+    if (this.editing) this.finishEdit();
+
+    if (this.collab.doc && this.collab.doc.room === inv.room) {
+      const r = await this.collab.resume(inv, name);
+      return r.ok ? { ...r, resumed: true } : r;
+    }
+
+    this.flushSave();
+    this.patchMeta(this.boardId, { thumb: this.makeThumb() });
+    const meta = this.makeMeta((inv.b || "Lavagna condivisa").slice(0, 80));
+    this.boards = [...this.boards, meta];
+    this.enterBoard(meta.id);
+    const r = await this.collab.beginGuest(inv, name);
+    if (!r.ok) {
+      this.deleteBoard(meta.id);
+      return r;
+    }
+    this.dirty = true;
+    this.flushSave();
+    this.requestRender();
+    this.emit();
+    return { ...r, resumed: false };
+  };
+
+  /** Esce dalla collaborazione: la lavagna resta, normale, in questo browser. */
+  stopCollab = (): void => this.collab.stop();
+  setCollabName = (name: string): void => this.collab.setName(name);
+  setCollabStun = (stun: boolean): void => this.collab.setStun(stun);
+
+  /* ======================================================================
    * Import / export
    * ==================================================================== */
 
@@ -1802,7 +1960,7 @@ export class Whiteboard {
     }
     const meta = this.boards.find((b) => b.id === id);
     const data = readBoard(id);
-    if (meta && data) this.saveJSONFile({ ...data, name: meta.name }, meta.name);
+    if (meta && data) this.saveJSONFile({ ...data, name: meta.name, collab: undefined }, meta.name);
   };
 
   /** Link che contiene l'intera lavagna corrente (nel fragment dell'URL, mai inviato al server). */
