@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { isDark } from "@/engine/render";
+import { decodeBoard, readShareHash, SHARE_SOFT_LIMIT } from "@/engine/share";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
 import BoardChip from "./BoardChip";
 import BoardsDrawer from "./BoardsDrawer";
@@ -35,6 +36,51 @@ export default function WhiteBoard() {
     setToast({ id: ++toastId.current, text, kind });
   }, []);
   const clearToast = useCallback(() => setToast(null), []);
+
+  /** Copia negli appunti il link che contiene l'intera lavagna. */
+  async function onShare() {
+    try {
+      const res = await wb.getShareUrl();
+      if (!res.ok) return notify(res.error, "error");
+      try {
+        await navigator.clipboard.writeText(res.url);
+      } catch {
+        // appunti non disponibili (http, permessi): ultima risorsa, il link da copiare a mano
+        window.prompt("Copia il link di condivisione:", res.url);
+      }
+      const kb = Math.max(1, Math.round(res.url.length / 1024));
+      notify(
+        res.url.length > SHARE_SOFT_LIMIT
+          ? `Link copiato (${kb} KB): alcune app potrebbero troncarlo`
+          : "Link copiato negli appunti",
+      );
+    } catch {
+      notify("Impossibile creare il link", "error");
+    }
+  }
+
+  // Apertura di un link condiviso: la lavagna diventa una NUOVA lavagna della libreria.
+  // Il fragment viene tolto subito, così un ricaricamento non la importa una seconda volta.
+  useEffect(() => {
+    async function openShared() {
+      const value = readShareHash();
+      if (!value) return;
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+      const board = await decodeBoard(value);
+      if (!board) return notify("Link non valido o danneggiato", "error");
+      const res = wb.importBoard(board);
+      if (res.ok) {
+        setLibrary(false);
+        notify("Lavagna condivisa aperta come nuova lavagna");
+      } else {
+        notify(res.error ?? "Importazione non riuscita", "error");
+      }
+    }
+    void openShared();
+    const onHash = () => void openShared();
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, [wb, notify]);
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -71,7 +117,7 @@ export default function WhiteBoard() {
           </Btn>
           <div className="mx-1 h-6 w-px bg-black/10 dark:bg-white/15" />
           <ViewMenu wb={wb} ui={ui} />
-          <FileMenu wb={wb} ui={ui} onImport={() => fileRef.current?.click()} />
+          <FileMenu wb={wb} ui={ui} onImport={() => fileRef.current?.click()} onShare={() => void onShare()} />
         </div>
 
         {/* Strumenti: in alto al centro su schermi larghi, in basso altrove */}

@@ -113,6 +113,12 @@ export const icons = {
       <path d="M12 11v6M9.5 14.5 12 17l2.5-2.5" />
     </Svg>
   ),
+  link: (
+    <Svg>
+      <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+      <path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1" />
+    </Svg>
+  ),
   open: (
     <Svg>
       <path d="M12 15V3M7 8l5-5 5 5" />

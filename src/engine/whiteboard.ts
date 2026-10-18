@@ -23,6 +23,7 @@ import {
   unionRects,
 } from "./geometry";
 import { drawElement, drawElements, drawGrid, isDark } from "./render";
+import { buildShareUrl, SHARE_HARD_LIMIT } from "./share";
 import {
   downloadBlob,
   LEGACY_KEY,
@@ -1804,10 +1805,25 @@ export class Whiteboard {
     if (meta && data) this.saveJSONFile({ ...data, name: meta.name }, meta.name);
   };
 
+  /** Link che contiene l'intera lavagna corrente (nel fragment dell'URL, mai inviato al server). */
+  getShareUrl = async (): Promise<{ ok: true; url: string } | { ok: false; error: string }> => {
+    if (this.editing) this.finishEdit();
+    const url = await buildShareUrl(this.serialize());
+    if (url.length > SHARE_HARD_LIMIT) {
+      return { ok: false, error: "La lavagna è troppo grande per essere condivisa con un link: esportala in .json." };
+    }
+    return { ok: true, url };
+  };
+
   /** Importa un file .json come NUOVA lavagna (la lavagna corrente non viene toccata). */
   importJSON = (text: string, fileName?: string): { ok: boolean; id?: string; error?: string } => {
     const board = parseBoard(text);
     if (!board) return { ok: false, error: "File non valido: non è una lavagna esportata da questa app." };
+    return this.importBoard(board, fileName);
+  };
+
+  /** Importa una lavagna già validata come NUOVA lavagna (usata da file .json e link condivisi). */
+  importBoard = (board: PersistedBoard, fileName?: string): { ok: boolean; id?: string; error?: string } => {
     if (this.editing) this.finishEdit();
     this.flushSave();
     this.patchMeta(this.boardId, { thumb: this.makeThumb() });

@@ -22,6 +22,12 @@ npm run typecheck
   com'era. Chi arriva dalla versione a lavagna singola trova il suo lavoro migrato in "Lavagna 1".
 - **Export / import**: PNG di tutto il contenuto, JSON di una lavagna (dal menu File o dalla card in libreria).
   Importare un `.json` crea sempre una *nuova* lavagna, senza toccare quella aperta.
+- **Condivisione via link**: dal menu File, "Copia link di condivisione" crea un URL che contiene l'intera lavagna
+  (elementi, sfondo, griglia, nome), compressa nel fragment `#lavagna=…` — nessun server né database. Chi apre il link
+  ottiene una *nuova* lavagna nella propria libreria (quella aperta non viene toccata) e il fragment viene rimosso
+  dall'indirizzo, così un ricaricamento non la importa due volte. Le coordinate sono arrotondate al centesimo.
+  Lavagne molto ricche generano link lunghi: oltre ~8 KB alcune app di messaggistica possono troncarli (l'app avvisa);
+  oltre ~1,5 MB il link viene rifiutato e conviene l'export `.json`.
 - **Interfaccia**: pannelli "vetro" chiari o scuri secondo il tema del sistema, strumenti raggruppati con tooltip e
   scorciatoie, pannello proprietà contestuale, notifiche, layout adattato a mobile e touch.
 - Supporto mouse, touch e penna (Pointer Events), schermi HiDPI, ridimensionamento finestra.
@@ -47,6 +53,7 @@ src/engine/
   geometry.ts    bounds, hit-test, trasformazioni, semplificazione tratti (RDP)
   render.ts      disegno di elementi e griglia (usato anche dall'export), LOD per lo zoom-out
   storage.ts     validazione/parsing JSON, download
+  share.ts       codifica/decodifica della lavagna nell'URL (formato compatto + deflate + base64url)
   whiteboard.ts  classe Whiteboard: stato, input, strumenti, history, persistenza, export
 src/hooks/useWhiteboard.ts
 src/components/  WhiteBoard (composizione), Canvas, TextEditor, Toolbar, PropertiesPanel, ViewMenu, FileMenu,
