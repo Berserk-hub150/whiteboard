@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -8,8 +8,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Whiteboard",
-  description: "Whiteboard app",
+  title: "Whiteboard infinita",
+  description: "Lavagna infinita: disegna, scrivi, sposta e fai zoom senza limiti.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -18,12 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistMono.className} antialiased h-screen`}
-      >
-        {children}
-      </body>
+    <html lang="it" className="h-full">
+      <body className={`${geistMono.className} h-full overflow-hidden antialiased`}>{children}</body>
     </html>
   );
 }

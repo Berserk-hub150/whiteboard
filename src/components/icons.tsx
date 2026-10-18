@@ -1,0 +1,154 @@
+import type { ReactNode } from "react";
+
+function Svg({ children, className = "h-5 w-5" }: { children: ReactNode; className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+export const icons = {
+  select: (
+    <Svg>
+      <path d="M5 3l13 7-6 2-2 6z" />
+    </Svg>
+  ),
+  hand: (
+    <Svg>
+      <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
+      <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" />
+      <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" />
+      <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+    </Svg>
+  ),
+  pen: (
+    <Svg>
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
+    </Svg>
+  ),
+  eraser: (
+    <Svg>
+      <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
+      <path d="M22 21H7" />
+      <path d="m5 11 9 9" />
+    </Svg>
+  ),
+  line: (
+    <Svg>
+      <path d="M5 19L19 5" />
+    </Svg>
+  ),
+  arrow: (
+    <Svg>
+      <path d="M5 19L19 5" />
+      <path d="M9 5h10v10" />
+    </Svg>
+  ),
+  rect: (
+    <Svg>
+      <rect x="4" y="5" width="16" height="14" rx="1.5" />
+    </Svg>
+  ),
+  ellipse: (
+    <Svg>
+      <ellipse cx="12" cy="12" rx="9" ry="7" />
+    </Svg>
+  ),
+  text: (
+    <Svg>
+      <path d="M5 6V4h14v2" />
+      <path d="M12 4v16" />
+      <path d="M9 20h6" />
+    </Svg>
+  ),
+  undo: (
+    <Svg>
+      <path d="M9 14L4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </Svg>
+  ),
+  redo: (
+    <Svg>
+      <path d="m15 14 5-5-5-5" />
+      <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+    </Svg>
+  ),
+  plus: (
+    <Svg>
+      <path d="M12 5v14M5 12h14" />
+    </Svg>
+  ),
+  minus: (
+    <Svg>
+      <path d="M5 12h14" />
+    </Svg>
+  ),
+  fit: (
+    <Svg>
+      <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />
+    </Svg>
+  ),
+  image: (
+    <Svg>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="9" cy="9" r="1.5" />
+      <path d="m21 15-4-4L5 21" />
+    </Svg>
+  ),
+  save: (
+    <Svg>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5" />
+      <path d="M12 11v6M9.5 14.5 12 17l2.5-2.5" />
+    </Svg>
+  ),
+  open: (
+    <Svg>
+      <path d="M12 15V3M7 8l5-5 5 5" />
+      <path d="M5 21h14" />
+    </Svg>
+  ),
+  trash: (
+    <Svg>
+      <path d="M4 7h16M10 11v6M14 11v6" />
+      <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V4h6v3" />
+    </Svg>
+  ),
+  copy: (
+    <Svg>
+      <rect x="8" y="8" width="12" height="12" rx="2" />
+      <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+    </Svg>
+  ),
+  front: (
+    <Svg>
+      <path d="M12 19V5M6 11l6-6 6 6" />
+    </Svg>
+  ),
+  back: (
+    <Svg>
+      <path d="M12 5v14M6 13l6 6 6-6" />
+    </Svg>
+  ),
+  style: (
+    <Svg>
+      <path d="M4 6h8M16 6h4M4 12h2M10 12h10M4 18h12M20 18h0" />
+      <circle cx="14" cy="6" r="2" />
+      <circle cx="8" cy="12" r="2" />
+      <circle cx="18" cy="18" r="2" />
+    </Svg>
+  ),
+};
+
+export type IconName = keyof typeof icons;

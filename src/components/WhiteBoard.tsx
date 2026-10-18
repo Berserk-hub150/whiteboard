@@ -1,91 +1,140 @@
-"use client"
-import React, { useState } from 'react'
-import Canvas from './Canvas';
-import { whiteBoard } from '@/drawings/drawings';
-import { HexColorPicker } from 'react-colorful';
+"use client";
+
+import { useRef, useState } from "react";
+import { isDark } from "@/engine/render";
+import { useWhiteboard } from "@/hooks/useWhiteboard";
+import Canvas from "./Canvas";
+import StylePanel from "./StylePanel";
+import Toolbar from "./Toolbar";
+import { icons } from "./icons";
+import { Btn, panelClass } from "./ui";
 
 export default function WhiteBoard() {
+  const { wb, ui } = useWhiteboard();
+  const [styleOpen, setStyleOpen] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-    function handleWb(wb: whiteBoard) {
-        setWb(wb)
-    }
-    
-    const [wb, setWb] = useState(new whiteBoard(3, handleWb));
-    const [colorVisible, setColorVisible] = useState(false);
- 
-    return (
-        <>
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    const res = wb.importJSON(await file.text());
+    if (!res.ok) window.alert(res.error);
+  }
 
-        <div className="h-full w-44 pl-2 py-2 relative z-10">
-            <div className="bg-black/80 backdrop-blur-xl h-full w-full rounded-md flex flex-col gap-5 py-4 px-3">
+  const hasSelection = ui.selectionCount > 0;
 
-            <div className="text-white w-full flex flex-col items-center select-none">
-                Dimensione
-                <div className="flex items-center justify-center gap-2">
-                <div className="border border-white px-2 py-px flex items-center justify-center rounded-md cursor-pointer hover:bg-neutral-600 transition-all duration-300" onClick={() => setWb(wb.newRadius(wb.radius-2))}>-</div>
-                {wb.radius}
-                <div className="border border-white px-2 py-px flex items-center justify-center rounded-md cursor-pointer hover:bg-neutral-600 transition-all duration-300" onClick={() => {setWb(wb.newRadius(wb.radius+2))}}>+</div>
-                </div>
-            </div>
+  return (
+    <div className="fixed inset-0 overflow-hidden">
+      <Canvas wb={wb} ui={ui} />
 
-            <div className="text-white w-full flex flex-col items-center select-none">
-                Colore
-                <div className={`absolute left-[175px] ${colorVisible? "" : "hidden"}`}>
-                    <HexColorPicker className='' color={wb.color} onChange={(e) => setWb(wb.newColor(e))} />
-                </div>
-                
-                <div className="flex items-center justify-center gap-2 h-6">
-                    {wb.lastsColors.map((el: string) => 
-                        <div key={el} style={{backgroundColor: el}} onClick={() => setWb(wb.newColor(el))} className={`border border-neutral-800 cursor-pointer w-5 h-5 rounded ${wb.color == el ? "border-2 border-neutral-400" : ""} hover:scale-105 transition-all duration-300 ease-in-out`} />
-                    )}
-                </div>
-
-                <div onClick={() => setColorVisible(!colorVisible)} className='cursor-pointer text-sm bg-neutral-600 px-4 py-1 mt-1 rounded-md hover:bg-neutral-500 transition-all duration-300'>{colorVisible? "Chiudi" : "Altri"}</div>
-            </div>
-
-            <div className="text-white w-full flex flex-col items-center select-none">
-                Sfondo
-                <div className="flex items-center justify-center gap-2 h-6">
-                    {wb.lastBgColors.map((el) => 
-                        <div key={el} style={{backgroundColor: el}} onClick={() => setWb(wb.newBgColor(el))} className={`bg-black border border-neutral-800 cursor-pointer w-5 h-5 rounded ${wb.bgColor == el ? "border-2 border-neutral-400" : ""} hover:scale-105 transition-all duration-300 ease-in-out`} />
-                    )}
-                </div>
-            </div>
-
-
-            <div className="text-white w-full flex flex-col items-center select-none">
-                Zoom
-                <div className="flex items-center justify-center gap-2">
-                <div className="border border-white px-2 py-px flex items-center justify-center rounded-md cursor-pointer hover:bg-neutral-600 transition-all duration-300" onClick={() => setWb(wb.newScale(wb.scale*0.8))}>-</div>
-                {(wb.scale * 100).toFixed(0)}%
-                <div className="border border-white px-2 py-px flex items-center justify-center rounded-md cursor-pointer hover:bg-neutral-600 transition-all duration-300" onClick={() => setWb(wb.newScale(wb.scale*1.25))}>+</div>
-                </div>
-            </div>
-
-            <div className="text-white w-full flex flex-col items-center select-none">
-                Gomma
-                <div onClick={() => setWb(wb.newEreaser(!wb.ereaser))} className={`flex items-center justify-center gap-2 text-black px-3 rounded-md cursor-pointer transition-all duration-300 ${wb.ereaser? "bg-green-600/50 hover:bg-green-600/60 text-white" : "bg-orange-100 hover:bg-orange-200"}`}>
-                {wb.ereaser? "Attivo" : "Non Attivo"}
-                </div>
-            </div>
-
-            <div className='md:hidden visible text-red-600 text-center text-xs w-full'>
-                <div>⚠️⚠️</div>
-                Apri da Computer
-                <div>⚠️⚠️</div>
-            </div>
-
-            <div className="text-white w-full flex flex-col items-center select-none mt-auto mb-0">
-                <div onClick={() => setWb(wb.newSave(true))} className={`w-full flex items-center justify-center gap-2 bg-white text-black px-3 rounded-md cursor-pointer hover:bg-neutral-300 transition-all duration-300 `}>
-                    Scarica
-                </div>
-            </div>
-
-
-            </div>
+      {/* UI sopra il canvas: il contenitore lascia passare i click, i pannelli no */}
+      <div className="pointer-events-none absolute inset-0 z-10 select-none">
+        {/* Strumenti */}
+        <div className="absolute left-1/2 top-2 -translate-x-1/2">
+          <Toolbar wb={wb} ui={ui} />
         </div>
 
-        <Canvas draw={(ctx: CanvasRenderingContext2D, e: {clientX: number; clientY: number;}, active: boolean, cameraPosition: {X: number, Y: number}) => wb.drawDotLine(ctx, e, active, cameraPosition)} whiteboard={wb} className={`absolute top-0 left-0 touch-none w-full`} />
-        </>
-    )
+        {/* Stile */}
+        <div className="absolute left-2 top-2 max-h-[calc(100%-5rem)] overflow-y-auto">
+          <div className={`${panelClass} mb-2 w-fit p-1 md:hidden`}>
+            <Btn title="Stile" active={styleOpen} onClick={() => setStyleOpen((o) => !o)}>
+              {icons.style}
+            </Btn>
+          </div>
+          <div className={`${styleOpen ? "block" : "hidden"} md:block`}>
+            <StylePanel wb={wb} ui={ui} />
+          </div>
+        </div>
+
+        {/* File */}
+        <div className={`${panelClass} absolute right-2 top-2 flex items-center gap-0.5 p-1`}>
+          <Btn title="Esporta PNG" onClick={() => void wb.exportPNG()}>
+            {icons.image}
+          </Btn>
+          <Btn title="Salva lavagna (.json)" onClick={wb.exportJSON}>
+            {icons.save}
+          </Btn>
+          <Btn title="Apri lavagna (.json)" onClick={() => fileRef.current?.click()}>
+            {icons.open}
+          </Btn>
+          <Btn title="Svuota lavagna" danger disabled={!ui.hasContent} onClick={wb.clear}>
+            {icons.trash}
+          </Btn>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              void onFile(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+        </div>
+
+        {/* Azioni sulla selezione */}
+        {hasSelection && (
+          <div className={`${panelClass} absolute bottom-14 left-1/2 flex -translate-x-1/2 items-center gap-0.5 p-1 md:bottom-2`}>
+            <span className="px-2 text-xs text-white/60">{ui.selectionCount} selezionat{ui.selectionCount === 1 ? "o" : "i"}</span>
+            <Btn title="Duplica (Ctrl+D)" onClick={wb.duplicateSelection}>
+              {icons.copy}
+            </Btn>
+            <Btn title="Porta in primo piano (])" onClick={wb.bringToFront}>
+              {icons.front}
+            </Btn>
+            <Btn title="Manda sullo sfondo ([)" onClick={wb.sendToBack}>
+              {icons.back}
+            </Btn>
+            <Btn title="Elimina (Canc)" danger onClick={wb.deleteSelection}>
+              {icons.trash}
+            </Btn>
+          </div>
+        )}
+
+        {/* Annulla / ripeti */}
+        <div className={`${panelClass} absolute bottom-2 left-2 flex items-center gap-0.5 p-1`}>
+          <Btn title="Annulla (Ctrl+Z)" disabled={!ui.canUndo} onClick={wb.undo}>
+            {icons.undo}
+          </Btn>
+          <Btn title="Ripeti (Ctrl+Shift+Z)" disabled={!ui.canRedo} onClick={wb.redo}>
+            {icons.redo}
+          </Btn>
+        </div>
+
+        {/* Zoom */}
+        <div className={`${panelClass} absolute bottom-2 right-2 flex items-center gap-0.5 p-1`}>
+          <Btn title="Riduci (Ctrl+-)" onClick={wb.zoomOut}>
+            {icons.minus}
+          </Btn>
+          <button
+            type="button"
+            title="Zoom 100% (Ctrl+0)"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={wb.resetZoom}
+            className="h-9 w-14 rounded-lg text-center text-xs tabular-nums hover:bg-white/15"
+          >
+            {Math.round(ui.zoom * 100)}%
+          </button>
+          <Btn title="Ingrandisci (Ctrl++)" onClick={wb.zoomIn}>
+            {icons.plus}
+          </Btn>
+          <Btn title="Adatta al contenuto (1)" onClick={wb.zoomToFit}>
+            {icons.fit}
+          </Btn>
+        </div>
+
+        {/* Suggerimenti a lavagna vuota */}
+        {!ui.hasContent && !ui.editing && (
+          <div
+            className="absolute inset-x-0 top-1/2 -translate-y-1/2 px-6 text-center text-sm"
+            style={{ color: isDark(ui.bgColor) ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)" }}
+          >
+            <p className="text-base font-medium">Lavagna infinita</p>
+            <p className="mt-1">
+              Trascina per disegnare · Spazio o tasto destro + trascina per spostarti · Ctrl + rotella per lo zoom
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
