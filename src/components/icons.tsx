@@ -141,6 +141,54 @@ export const icons = {
       <path d="M12 5v14M6 13l6 6 6-6" />
     </Svg>
   ),
+  boards: (
+    <Svg>
+      <rect x="3" y="3" width="7.5" height="7.5" rx="1.5" />
+      <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" />
+      <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" />
+      <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" />
+    </Svg>
+  ),
+  palette: (
+    <Svg>
+      <path d="M12 3a9 9 0 1 0 0 18c1.2 0 2-.8 2-1.8 0-.6-.3-1-.6-1.4-.3-.4-.5-.8-.5-1.3 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z" />
+      <circle cx="7.5" cy="11" r="1" />
+      <circle cx="10" cy="7" r="1" />
+      <circle cx="15" cy="7" r="1" />
+    </Svg>
+  ),
+  file: (
+    <Svg>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5" />
+    </Svg>
+  ),
+  close: (
+    <Svg>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </Svg>
+  ),
+  edit: (
+    <Svg>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+    </Svg>
+  ),
+  check: (
+    <Svg>
+      <path d="m5 12 5 5L20 7" />
+    </Svg>
+  ),
+  cloud: (
+    <Svg className="h-3.5 w-3.5">
+      <path d="M7 18a4.5 4.5 0 0 1-.5-9A6 6 0 0 1 18 10a4 4 0 0 1-.5 8z" />
+    </Svg>
+  ),
+  chevron: (
+    <Svg className="h-4 w-4">
+      <path d="m6 9 6 6 6-6" />
+    </Svg>
+  ),
   style: (
     <Svg>
       <path d="M4 6h8M16 6h4M4 12h2M10 12h10M4 18h12M20 18h0" />

@@ -17,8 +17,13 @@ npm run typecheck
 - **Stile**: colore (palette, recenti, selettore libero), spessore, riempimento forme, sfondo e griglia (punti/righe). Con una selezione attiva le modifiche si applicano agli elementi selezionati.
 - **Camera**: pan con rotella/trackpad, Spazio+trascina, tasto destro o centrale; zoom con Ctrl+rotella/pinch ancorato al cursore; pinch e pan a due dita su touch; "adatta al contenuto".
 - **Undo/redo** illimitati nella pratica (200 passi), anche per gomma, import e svuota.
-- **Salvataggio automatico** in localStorage (contenuto, vista e impostazioni).
-- **Export**: PNG di tutto il contenuto, JSON (salva/apri lavagna).
+- **Libreria di lavagne** salvata nel browser (localStorage): crea, apri, rinomina, duplica ed elimina lavagne dal
+  pannello "Le mie lavagne", con anteprima. Ogni lavagna si salva da sola (contenuto, vista, sfondo) e si riapre
+  com'era. Chi arriva dalla versione a lavagna singola trova il suo lavoro migrato in "Lavagna 1".
+- **Export / import**: PNG di tutto il contenuto, JSON di una lavagna (dal menu File o dalla card in libreria).
+  Importare un `.json` crea sempre una *nuova* lavagna, senza toccare quella aperta.
+- **Interfaccia**: pannelli "vetro" chiari o scuri secondo il tema del sistema, strumenti raggruppati con tooltip e
+  scorciatoie, pannello proprietà contestuale, notifiche, layout adattato a mobile e touch.
 - Supporto mouse, touch e penna (Pointer Events), schermi HiDPI, ridimensionamento finestra.
 
 ## Scorciatoie
@@ -44,8 +49,19 @@ src/engine/
   storage.ts     validazione/parsing JSON, download
   whiteboard.ts  classe Whiteboard: stato, input, strumenti, history, persistenza, export
 src/hooks/useWhiteboard.ts
-src/components/  Canvas, TextEditor, Toolbar, StylePanel, WhiteBoard
+src/components/  WhiteBoard (composizione), Canvas, TextEditor, Toolbar, PropertiesPanel, ViewMenu, FileMenu,
+                 BoardChip, BoardsDrawer, Toast, ui (design system)
 ```
+
+### Dove finiscono i dati
+
+| Chiave localStorage | Contenuto |
+|---|---|
+| `whiteboard:index` | elenco lavagne (id, nome, date, anteprima) e lavagna corrente |
+| `whiteboard:board:<id>` | una lavagna: elementi, camera, sfondo, griglia |
+
+localStorage ha un limite di pochi MB per sito: se si esaurisce, l'app continua a funzionare in memoria e lo segnala
+sotto il nome della lavagna. In quel caso esporta in `.json` ed elimina le lavagne che non servono.
 
 Il documento è un array di elementi **immutabili** in coordinate mondo: l'undo è uno snapshot dell'array
 (condivide gli oggetti, costo trascurabile) e le cache per elemento (bounds, LOD) restano valide.

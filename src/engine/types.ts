@@ -103,10 +103,28 @@ export interface UIState {
   editing: TextEdit | null;
   /** Presente solo durante l'editing di un testo (serve a posizionare la textarea). */
   camera: Camera | null;
+  /* libreria lavagne */
+  boardId: string;
+  boardName: string;
+  boards: BoardMeta[];
+  saveState: SaveState;
+  lastSaved: number;
 }
+
+export interface BoardMeta {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  /** Anteprima JPEG (data URL) mostrata nella libreria. */
+  thumb?: string;
+}
+
+export type SaveState = "saved" | "saving" | "error";
 
 export interface PersistedBoard {
   version: 1;
+  name?: string;
   elements: El[];
   camera?: Camera;
   bgColor?: string;

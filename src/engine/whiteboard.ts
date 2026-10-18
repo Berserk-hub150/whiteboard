@@ -23,15 +23,29 @@ import {
   unionRects,
 } from "./geometry";
 import { drawElement, drawElements, drawGrid, isDark } from "./render";
-import { downloadBlob, parseBoard, sanitizeColor, STORAGE_KEY, timestamp } from "./storage";
+import {
+  downloadBlob,
+  LEGACY_KEY,
+  parseBoard,
+  readBoard,
+  readIndex,
+  removeBoard,
+  sanitizeColor,
+  slugify,
+  timestamp,
+  writeBoard,
+  writeIndex,
+} from "./storage";
 import { MAX_ZOOM, MIN_ZOOM } from "./types";
 import type {
+  BoardMeta,
   BoxEl,
   Camera,
   El,
   GridMode,
   PersistedBoard,
   Point,
+  SaveState,
   Rect,
   TextEdit,
   TextEl,
@@ -138,6 +152,16 @@ export class Whiteboard {
   private cursor = "";
   private loaded = false;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private dirty = false;
+
+  /* ---- libreria lavagne ---- */
+  private boardId = "";
+  private boardName = "Lavagna 1";
+  private boards: BoardMeta[] = [];
+  private saveState: SaveState = "saved";
+  private lastSaved = 0;
+  /** Se true le scorciatoie da tastiera sono sospese (dialog aperti). */
+  private paused = false;
 
   /* ---- store osservabile ---- */
   private listeners = new Set<() => void>();
@@ -200,6 +224,11 @@ export class Whiteboard {
           : [...this.recentColors],
       editing,
       camera: editing ? { ...this.camera } : null,
+      boardId: this.boardId,
+      boardName: this.boardName,
+      boards: this.boards,
+      saveState: this.saveState,
+      lastSaved: this.lastSaved,
     };
   }
 
@@ -1339,7 +1368,7 @@ export class Whiteboard {
 
   private onKeyDown = (e: KeyboardEvent): void => {
     const t = e.target as HTMLElement | null;
-    if (isTypingTarget(t)) return;
+    if (this.paused || isTypingTarget(t)) return;
     const mod = e.ctrlKey || e.metaKey;
     const k = e.key.toLowerCase();
     // sullo slider le frecce servono allo slider stesso
@@ -1483,12 +1512,17 @@ export class Whiteboard {
   };
 
   /* ======================================================================
-   * Persistenza
+   * Persistenza e libreria di lavagne
    * ==================================================================== */
+
+  setPaused = (paused: boolean): void => {
+    this.paused = paused;
+  };
 
   private serialize(): PersistedBoard {
     return {
       version: 1,
+      name: this.boardName,
       elements: this.elements,
       camera: { ...this.camera },
       bgColor: this.bgColor,
@@ -1511,18 +1545,99 @@ export class Whiteboard {
     if (b.recentColors) this.recentColors = b.recentColors.slice(0, RECENT_MAX);
   }
 
-  private load(): void {
+  /** Riporta il documento a una lavagna vuota (stile dello strumento invariato). */
+  private resetDocument(): void {
+    this.elements = [];
+    this.past = [];
+    this.future = [];
+    this.coalesceKey = null;
+    this.selection = new Set();
+    this.draft = null;
+    this.erasing = new Set();
+    this.marquee = null;
+    this.editing = null;
+    this.action = null;
+    this.camera = { x: 0, y: 0, zoom: 1 };
+    this.bgColor = DEFAULT_BG;
+    this.grid = "dots";
+  }
+
+  private nextName(): string {
+    const names = new Set(this.boards.map((b) => b.name));
+    let n = this.boards.length + 1;
+    while (names.has(`Lavagna ${n}`)) n++;
+    return `Lavagna ${n}`;
+  }
+
+  private makeMeta(name: string): BoardMeta {
+    const now = Date.now();
+    return { id: newId(), name, createdAt: now, updatedAt: now };
+  }
+
+  /** Scrive l'indice. Ritorna false se localStorage non è utilizzabile. */
+  private persistIndex(): boolean {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const board = parseBoard(raw);
-      if (board) this.applyBoard(board, true);
+      writeIndex({ version: 1, currentId: this.boardId, boards: this.boards });
+      return true;
     } catch {
-      /* storage non disponibile */
+      return false;
     }
   }
 
+  private patchMeta(id: string, patch: Partial<BoardMeta>): void {
+    this.boards = this.boards.map((b) => (b.id === id ? { ...b, ...patch } : b));
+  }
+
+  private load(): void {
+    let index = readIndex();
+    if (!index) {
+      // primo avvio, oppure migrazione dalla versione a lavagna singola
+      const meta = this.makeMeta("Lavagna 1");
+      try {
+        const raw = localStorage.getItem(LEGACY_KEY);
+        const legacy = raw ? parseBoard(raw) : null;
+        if (legacy) {
+          writeBoard(meta.id, legacy);
+          localStorage.removeItem(LEGACY_KEY);
+        }
+      } catch {
+        /* storage non disponibile: si lavora in memoria */
+      }
+      index = { version: 1, currentId: meta.id, boards: [meta] };
+    }
+    this.boards = index.boards;
+    this.enterBoard(index.currentId);
+    this.persistIndex();
+    this.ensureStored();
+  }
+
+  /** Garantisce che la lavagna corrente abbia la sua voce dati (indice e dati restano coerenti). */
+  private ensureStored(): void {
+    if (readBoard(this.boardId)) return;
+    this.dirty = true;
+    this.flushSave();
+  }
+
+  /** Carica la lavagna `id` come documento corrente (senza salvare quella precedente). */
+  private enterBoard(id: string): void {
+    const meta = this.boards.find((b) => b.id === id) ?? this.boards[0];
+    this.resetDocument();
+    this.boardId = meta.id;
+    this.boardName = meta.name;
+    const data = readBoard(meta.id);
+    if (data) this.applyBoard(data, true);
+    this.dirty = false;
+    this.saveState = "saved";
+    this.updateCursor();
+    this.requestRender();
+  }
+
   private scheduleSave(): void {
+    this.dirty = true;
+    if (this.saveState !== "saving") {
+      this.saveState = "saving";
+      this.emit();
+    }
     if (this.saveTimer) clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(this.flushSave, 500);
   }
@@ -1532,33 +1647,181 @@ export class Whiteboard {
       clearTimeout(this.saveTimer);
       this.saveTimer = null;
     }
-    if (!this.loaded) return;
+    if (!this.loaded || !this.boardId || !this.dirty) return;
+    this.dirty = false;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.serialize()));
+      writeBoard(this.boardId, this.serialize());
+      this.patchMeta(this.boardId, { updatedAt: Date.now(), name: this.boardName });
+      if (!this.persistIndex()) throw new Error("index");
+      this.saveState = "saved";
+      this.lastSaved = Date.now();
     } catch {
-      /* quota superata o storage bloccato: si continua senza salvare */
+      // quota superata o storage bloccato: i dati restano in memoria, la UI avvisa
+      this.saveState = "error";
+      this.dirty = true;
     }
+    this.emit();
+  };
+
+  /** Anteprima JPEG della lavagna corrente (undefined se vuota). */
+  private makeThumb(): string | undefined {
+    const content = unionRects(this.elements.map(boundsOf));
+    if (!content) return undefined;
+    try {
+      const W = 320;
+      const H = 200;
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return undefined;
+      ctx.fillStyle = this.bgColor;
+      ctx.fillRect(0, 0, W, H);
+      const area = inflate(content, 40);
+      const scale = Math.min(W / area.w, H / area.h, 1.5);
+      const ox = (W - area.w * scale) / 2 - area.x * scale;
+      const oy = (H - area.h * scale) / 2 - area.y * scale;
+      ctx.setTransform(scale, 0, 0, scale, ox, oy);
+      drawElements(ctx, this.elements, null, undefined, null, scale);
+      return canvas.toDataURL("image/jpeg", 0.72);
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Aggiorna l'anteprima della lavagna corrente (chiamata aprendo la libreria). */
+  refreshThumb = (): void => {
+    if (!this.boardId) return;
+    this.flushSave();
+    this.patchMeta(this.boardId, { thumb: this.makeThumb() });
+    this.persistIndex();
+    this.emit();
+  };
+
+  newBoard = (name?: string): string => {
+    if (this.editing) this.finishEdit();
+    this.flushSave();
+    this.patchMeta(this.boardId, { thumb: this.makeThumb() });
+    const meta = this.makeMeta(name?.trim() || this.nextName());
+    this.boards = [...this.boards, meta];
+    this.enterBoard(meta.id);
+    this.dirty = true;
+    this.flushSave();
+    this.requestRender();
+    this.emit();
+    return meta.id;
+  };
+
+  openBoard = (id: string): void => {
+    if (id === this.boardId || !this.boards.some((b) => b.id === id)) return;
+    if (this.editing) this.finishEdit();
+    this.flushSave();
+    this.patchMeta(this.boardId, { thumb: this.makeThumb() });
+    this.enterBoard(id);
+    this.persistIndex();
+    this.requestRender();
+    this.emit();
+  };
+
+  renameBoard = (id: string, name: string): void => {
+    const n = name.trim().slice(0, 80);
+    if (!n) return;
+    this.patchMeta(id, { name: n });
+    if (id === this.boardId) {
+      this.boardName = n;
+      this.dirty = true;
+    }
+    this.flushSave();
+    this.persistIndex();
+    this.emit();
+  };
+
+  duplicateBoard = (id: string): string | null => {
+    const src = this.boards.find((b) => b.id === id);
+    if (!src) return null;
+    this.flushSave();
+    const data = id === this.boardId ? this.serialize() : readBoard(id);
+    if (!data) return null;
+    const meta: BoardMeta = {
+      ...this.makeMeta(`${src.name} (copia)`.slice(0, 80)),
+      thumb: id === this.boardId ? this.makeThumb() : src.thumb,
+    };
+    try {
+      writeBoard(meta.id, { ...data, name: meta.name });
+    } catch {
+      this.saveState = "error";
+      this.emit();
+      return null;
+    }
+    this.boards = [...this.boards, meta];
+    this.persistIndex();
+    this.emit();
+    return meta.id;
+  };
+
+  deleteBoard = (id: string): void => {
+    if (!this.boards.some((b) => b.id === id)) return;
+    removeBoard(id);
+    const rest = this.boards.filter((b) => b.id !== id);
+    if (id !== this.boardId) {
+      this.boards = rest;
+      this.persistIndex();
+      this.emit();
+      return;
+    }
+    this.dirty = false;
+    if (rest.length === 0) {
+      const meta = this.makeMeta("Lavagna 1");
+      this.boards = [meta];
+    } else {
+      this.boards = rest;
+    }
+    const next = [...this.boards].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+    this.enterBoard(next.id);
+    this.persistIndex();
+    this.ensureStored();
+    this.requestRender();
+    this.emit();
   };
 
   /* ======================================================================
    * Import / export
    * ==================================================================== */
 
-  exportJSON = (): void => {
-    const blob = new Blob([JSON.stringify(this.serialize(), null, 2)], { type: "application/json" });
-    downloadBlob(blob, `whiteboard-${timestamp()}.json`);
+  private saveJSONFile(data: PersistedBoard, name: string): void {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    downloadBlob(blob, `${slugify(name)}-${timestamp()}.json`);
+  }
+
+  /** Esporta la lavagna corrente (o quella indicata) come file .json. */
+  exportJSON = (id?: string): void => {
+    if (!id || id === this.boardId) {
+      this.saveJSONFile(this.serialize(), this.boardName);
+      return;
+    }
+    const meta = this.boards.find((b) => b.id === id);
+    const data = readBoard(id);
+    if (meta && data) this.saveJSONFile({ ...data, name: meta.name }, meta.name);
   };
 
-  importJSON = (text: string): { ok: boolean; error?: string } => {
+  /** Importa un file .json come NUOVA lavagna (la lavagna corrente non viene toccata). */
+  importJSON = (text: string, fileName?: string): { ok: boolean; id?: string; error?: string } => {
     const board = parseBoard(text);
     if (!board) return { ok: false, error: "File non valido: non è una lavagna esportata da questa app." };
     if (this.editing) this.finishEdit();
-    this.record();
-    this.selection.clear();
+    this.flushSave();
+    this.patchMeta(this.boardId, { thumb: this.makeThumb() });
+    const fromFile = fileName?.replace(/\.json$/i, "").replace(/[-_]\d{8}-\d{4}$/, "").trim();
+    const meta = this.makeMeta((board.name || fromFile || this.nextName()).slice(0, 80));
+    this.boards = [...this.boards, meta];
+    this.enterBoard(meta.id);
     this.applyBoard(board, false);
     this.zoomToFit();
-    this.changed();
-    return { ok: true };
+    this.dirty = true;
+    this.flushSave();
+    this.requestRender();
+    this.emit();
+    return { ok: true, id: meta.id };
   };
 
   /** Esporta tutto il contenuto (o la vista corrente se la lavagna è vuota) in PNG. */
@@ -1583,6 +1846,6 @@ export class Whiteboard {
     drawElements(ctx, this.elements, null);
 
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-    if (blob) downloadBlob(blob, `whiteboard-${timestamp()}.png`);
+    if (blob) downloadBlob(blob, `${slugify(this.boardName)}-${timestamp()}.png`);
   };
 }

@@ -5,7 +5,7 @@ import { HexColorPicker } from "react-colorful";
 import { BG_PRESETS, MAX_WIDTH, MIN_WIDTH, PALETTE } from "@/engine/constants";
 import type { GridMode, UIState } from "@/engine/types";
 import type { Whiteboard } from "@/engine/whiteboard";
-import { panelClass, Section, Swatch } from "./ui";
+import { Section, Swatch } from "./ui";
 
 const GRIDS: Array<{ id: GridMode; label: string }> = [
   { id: "none", label: "Nessuna" },
@@ -18,7 +18,7 @@ export default function StylePanel({ wb, ui }: { wb: Whiteboard; ui: UIState }) 
   const isText = ui.tool === "text";
 
   return (
-    <div className={`${panelClass} flex w-52 flex-col gap-4 p-3`}>
+    <div className={`flex w-52 flex-col gap-4 p-3`}>
       <Section label="Colore">
         <div className="grid grid-cols-8 gap-1">
           {PALETTE.map((c) => (
@@ -77,7 +77,7 @@ export default function StylePanel({ wb, ui }: { wb: Whiteboard; ui: UIState }) 
       <Section label="Sfondo">
         <div className="flex flex-wrap gap-1">
           {BG_PRESETS.map((c) => (
-            <Swatch key={c} color={c} active={ui.bgColor === c} onClick={() => wb.setBgColor(c)} title={`Sfondo ${c}`} />
+            <Swatch key={c} color={c} active={ui.bgColor === c} onClick={() => wb.setBgColor(c)} />
           ))}
         </div>
         <div className="grid grid-cols-3 gap-1">

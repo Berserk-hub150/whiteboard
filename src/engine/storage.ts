@@ -1,7 +1,10 @@
 import { MAX_ZOOM, MIN_ZOOM } from "./types";
-import type { Camera, El, GridMode, PersistedBoard, Point } from "./types";
+import type { BoardMeta, Camera, El, GridMode, PersistedBoard, Point } from "./types";
 
-export const STORAGE_KEY = "whiteboard:v1";
+/** Chiave usata dalla versione precedente (una sola lavagna): viene migrata al primo avvio. */
+export const LEGACY_KEY = "whiteboard:v1";
+export const INDEX_KEY = "whiteboard:index";
+export const boardKey = (id: string) => `whiteboard:board:${id}`;
 
 const HEX = /^#[0-9a-f]{3,8}$/i;
 
@@ -98,6 +101,7 @@ export function parseBoard(text: string): PersistedBoard | null {
 
   return {
     version: 1,
+    name: typeof data.name === "string" ? data.name.slice(0, 80) : undefined,
     elements,
     camera: sanitizeCamera(data.camera),
     bgColor: typeof data.bgColor === "string" && HEX.test(data.bgColor) ? data.bgColor : undefined,
@@ -126,4 +130,83 @@ export function timestamp(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+}
+
+/* ------------------------------------------------------------------------
+ * Libreria di lavagne in localStorage
+ *   whiteboard:index          → { currentId, boards: BoardMeta[] }
+ *   whiteboard:board:<id>     → PersistedBoard
+ * ---------------------------------------------------------------------- */
+
+export interface BoardIndex {
+  version: 1;
+  currentId: string;
+  boards: BoardMeta[];
+}
+
+function sanitizeMeta(raw: unknown): BoardMeta | null {
+  if (!isObj(raw) || typeof raw.id !== "string" || !raw.id) return null;
+  const now = Date.now();
+  return {
+    id: raw.id,
+    name: typeof raw.name === "string" && raw.name.trim() ? raw.name.slice(0, 80) : "Senza titolo",
+    createdAt: isNum(raw.createdAt) ? raw.createdAt : now,
+    updatedAt: isNum(raw.updatedAt) ? raw.updatedAt : now,
+    thumb: typeof raw.thumb === "string" && raw.thumb.startsWith("data:image/") ? raw.thumb : undefined,
+  };
+}
+
+export function readIndex(): BoardIndex | null {
+  try {
+    const raw = localStorage.getItem(INDEX_KEY);
+    if (!raw) return null;
+    const data: unknown = JSON.parse(raw);
+    if (!isObj(data) || !Array.isArray(data.boards)) return null;
+    const boards = data.boards.map(sanitizeMeta).filter((b): b is BoardMeta => b !== null);
+    if (boards.length === 0) return null;
+    const currentId =
+      typeof data.currentId === "string" && boards.some((b) => b.id === data.currentId)
+        ? data.currentId
+        : boards[0].id;
+    return { version: 1, currentId, boards };
+  } catch {
+    return null;
+  }
+}
+
+/** Lancia se localStorage è pieno o non disponibile. */
+export function writeIndex(index: BoardIndex): void {
+  localStorage.setItem(INDEX_KEY, JSON.stringify(index));
+}
+
+export function readBoard(id: string): PersistedBoard | null {
+  try {
+    const raw = localStorage.getItem(boardKey(id));
+    return raw ? parseBoard(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Lancia se localStorage è pieno o non disponibile. */
+export function writeBoard(id: string, board: PersistedBoard): void {
+  localStorage.setItem(boardKey(id), JSON.stringify(board));
+}
+
+export function removeBoard(id: string): void {
+  try {
+    localStorage.removeItem(boardKey(id));
+  } catch {
+    /* niente da rimuovere */
+  }
+}
+
+export function slugify(name: string): string {
+  const s = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return s || "lavagna";
 }

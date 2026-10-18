@@ -1,140 +1,176 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { isDark } from "@/engine/render";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
+import BoardChip from "./BoardChip";
+import BoardsDrawer from "./BoardsDrawer";
 import Canvas from "./Canvas";
-import StylePanel from "./StylePanel";
+import FileMenu from "./FileMenu";
+import PropertiesPanel from "./PropertiesPanel";
+import Toast, { type ToastMsg } from "./Toast";
 import Toolbar from "./Toolbar";
+import ViewMenu from "./ViewMenu";
 import { icons } from "./icons";
-import { Btn, panelClass } from "./ui";
+import { Btn, panel } from "./ui";
+
+const TIPS_DESKTOP: Array<[string, string]> = [
+  ["Disegna", "trascina con la penna"],
+  ["Spostati", "Spazio + trascina, o tasto destro"],
+  ["Zoom", "Ctrl + rotella"],
+];
+const TIPS_TOUCH: Array<[string, string]> = [
+  ["Disegna", "trascina con un dito"],
+  ["Spostati e zoom", "usa due dita"],
+];
 
 export default function WhiteBoard() {
   const { wb, ui } = useWhiteboard();
-  const [styleOpen, setStyleOpen] = useState(false);
+  const [library, setLibrary] = useState(false);
+  const [toast, setToast] = useState<ToastMsg | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const toastId = useRef(0);
+
+  const notify = useCallback((text: string, kind: "ok" | "error" = "ok") => {
+    setToast({ id: ++toastId.current, text, kind });
+  }, []);
+  const clearToast = useCallback(() => setToast(null), []);
 
   async function onFile(file: File | undefined) {
     if (!file) return;
-    const res = wb.importJSON(await file.text());
-    if (!res.ok) window.alert(res.error);
+    const res = wb.importJSON(await file.text(), file.name);
+    if (res.ok) {
+      setLibrary(false);
+      notify("Importata come nuova lavagna");
+    } else {
+      notify(res.error ?? "Importazione non riuscita", "error");
+    }
   }
 
   const hasSelection = ui.selectionCount > 0;
+  const dark = isDark(ui.bgColor);
 
   return (
-    <div className="fixed inset-0 overflow-hidden">
+    <div className="fixed inset-0 overflow-clip">
       <Canvas wb={wb} ui={ui} />
 
       {/* UI sopra il canvas: il contenitore lascia passare i click, i pannelli no */}
-      <div className="pointer-events-none absolute inset-0 z-10 select-none">
-        {/* Strumenti */}
-        <div className="absolute left-1/2 top-2 -translate-x-1/2">
+      <div className="pointer-events-none absolute inset-0 z-10 select-none overflow-clip">
+        {/* In alto a sinistra: lavagna */}
+        <div className="absolute left-2 top-2">
+          <BoardChip wb={wb} ui={ui} onOpenLibrary={() => setLibrary(true)} />
+        </div>
+
+        {/* In alto a destra: annulla/ripeti, sfondo, file */}
+        <div className={`${panel} absolute right-2 top-2 flex items-center gap-0.5 p-1.5`}>
+          <Btn label="Annulla" shortcut="Ctrl+Z" disabled={!ui.canUndo} onClick={wb.undo}>
+            {icons.undo}
+          </Btn>
+          <Btn label="Ripeti" shortcut="Ctrl+Shift+Z" disabled={!ui.canRedo} onClick={wb.redo}>
+            {icons.redo}
+          </Btn>
+          <div className="mx-1 h-6 w-px bg-black/10 dark:bg-white/15" />
+          <ViewMenu wb={wb} ui={ui} />
+          <FileMenu wb={wb} ui={ui} onImport={() => fileRef.current?.click()} />
+        </div>
+
+        {/* Strumenti: in alto al centro su schermi larghi, in basso altrove */}
+        <div className="absolute inset-x-0 bottom-2 flex justify-center px-2 lg:bottom-auto lg:top-2">
           <Toolbar wb={wb} ui={ui} />
         </div>
 
-        {/* Stile */}
-        <div className="absolute left-2 top-2 max-h-[calc(100%-5rem)] overflow-y-auto">
-          <div className={`${panelClass} mb-2 w-fit p-1 md:hidden`}>
-            <Btn title="Stile" active={styleOpen} onClick={() => setStyleOpen((o) => !o)}>
-              {icons.style}
-            </Btn>
-          </div>
-          <div className={`${styleOpen ? "block" : "hidden"} md:block`}>
-            <StylePanel wb={wb} ui={ui} />
-          </div>
-        </div>
-
-        {/* File */}
-        <div className={`${panelClass} absolute right-2 top-2 flex items-center gap-0.5 p-1`}>
-          <Btn title="Esporta PNG" onClick={() => void wb.exportPNG()}>
-            {icons.image}
-          </Btn>
-          <Btn title="Salva lavagna (.json)" onClick={wb.exportJSON}>
-            {icons.save}
-          </Btn>
-          <Btn title="Apri lavagna (.json)" onClick={() => fileRef.current?.click()}>
-            {icons.open}
-          </Btn>
-          <Btn title="Svuota lavagna" danger disabled={!ui.hasContent} onClick={wb.clear}>
-            {icons.trash}
-          </Btn>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={(e) => {
-              void onFile(e.target.files?.[0]);
-              e.target.value = "";
-            }}
-          />
+        {/* Proprietà dello strumento / della selezione */}
+        <div className="absolute inset-x-2 bottom-[4.5rem] max-h-[45vh] overflow-y-auto md:inset-x-auto md:bottom-auto md:left-2 md:top-[4.5rem] md:max-h-[calc(100%-9rem)]">
+          <PropertiesPanel wb={wb} ui={ui} />
         </div>
 
         {/* Azioni sulla selezione */}
         {hasSelection && (
-          <div className={`${panelClass} absolute bottom-14 left-1/2 flex -translate-x-1/2 items-center gap-0.5 p-1 md:bottom-2`}>
-            <span className="px-2 text-xs text-white/60">{ui.selectionCount} selezionat{ui.selectionCount === 1 ? "o" : "i"}</span>
-            <Btn title="Duplica (Ctrl+D)" onClick={wb.duplicateSelection}>
+          <div
+            className={`${panel} animate-pop-in absolute left-1/2 top-16 flex -translate-x-1/2 items-center gap-0.5 p-1.5 lg:bottom-3 lg:top-auto`}
+          >
+            <Btn label="Duplica" shortcut="Ctrl+D" tip="top" onClick={wb.duplicateSelection}>
               {icons.copy}
             </Btn>
-            <Btn title="Porta in primo piano (])" onClick={wb.bringToFront}>
+            <Btn label="Porta in primo piano" shortcut="]" tip="top" onClick={wb.bringToFront}>
               {icons.front}
             </Btn>
-            <Btn title="Manda sullo sfondo ([)" onClick={wb.sendToBack}>
+            <Btn label="Manda sullo sfondo" shortcut="[" tip="top" onClick={wb.sendToBack}>
               {icons.back}
             </Btn>
-            <Btn title="Elimina (Canc)" danger onClick={wb.deleteSelection}>
+            <Btn label="Elimina" shortcut="Canc" tip="top" danger onClick={wb.deleteSelection}>
               {icons.trash}
             </Btn>
           </div>
         )}
 
-        {/* Annulla / ripeti */}
-        <div className={`${panelClass} absolute bottom-2 left-2 flex items-center gap-0.5 p-1`}>
-          <Btn title="Annulla (Ctrl+Z)" disabled={!ui.canUndo} onClick={wb.undo}>
-            {icons.undo}
-          </Btn>
-          <Btn title="Ripeti (Ctrl+Shift+Z)" disabled={!ui.canRedo} onClick={wb.redo}>
-            {icons.redo}
-          </Btn>
-        </div>
-
         {/* Zoom */}
-        <div className={`${panelClass} absolute bottom-2 right-2 flex items-center gap-0.5 p-1`}>
-          <Btn title="Riduci (Ctrl+-)" onClick={wb.zoomOut}>
+        <div className={`${panel} absolute bottom-[4.5rem] right-2 flex items-center gap-0.5 p-1.5 max-md:hidden lg:bottom-3`}>
+          <Btn label="Riduci" shortcut="Ctrl+−" tip="top" onClick={wb.zoomOut}>
             {icons.minus}
           </Btn>
           <button
             type="button"
-            title="Zoom 100% (Ctrl+0)"
+            aria-label="Zoom 100%"
+            title="Torna al 100%"
             onMouseDown={(e) => e.preventDefault()}
             onClick={wb.resetZoom}
-            className="h-9 w-14 rounded-lg text-center text-xs tabular-nums hover:bg-white/15"
+            className="h-10 w-14 rounded-xl text-center text-xs font-medium tabular-nums transition-colors hover:bg-black/5 dark:hover:bg-white/10"
           >
             {Math.round(ui.zoom * 100)}%
           </button>
-          <Btn title="Ingrandisci (Ctrl++)" onClick={wb.zoomIn}>
+          <Btn label="Ingrandisci" shortcut="Ctrl++" tip="top" onClick={wb.zoomIn}>
             {icons.plus}
           </Btn>
-          <Btn title="Adatta al contenuto (1)" onClick={wb.zoomToFit}>
+          <Btn label="Adatta al contenuto" shortcut="1" tip="top" align="end" onClick={wb.zoomToFit}>
             {icons.fit}
           </Btn>
         </div>
 
-        {/* Suggerimenti a lavagna vuota */}
+        {/* Messaggio di benvenuto a lavagna vuota */}
         {!ui.hasContent && !ui.editing && (
           <div
-            className="absolute inset-x-0 top-1/2 -translate-y-1/2 px-6 text-center text-sm"
-            style={{ color: isDark(ui.bgColor) ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)" }}
+            className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 flex-col items-center gap-4 px-6 text-center"
+            style={{ color: dark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.5)" }}
           >
-            <p className="text-base font-medium">Lavagna infinita</p>
-            <p className="mt-1">
-              Trascina per disegnare · Spazio o tasto destro + trascina per spostarti · Ctrl + rotella per lo zoom
-            </p>
+            <div>
+              <p className="text-2xl font-semibold tracking-tight">Una lavagna senza confini</p>
+              <p className="mt-1 text-sm">Inizia a disegnare: viene salvata da sola.</p>
+            </div>
+            {([["hidden [@media(hover:hover)]:flex", TIPS_DESKTOP], ["hidden [@media(hover:none)]:flex", TIPS_TOUCH]] as const).map(([cls, tips]) => (
+              <ul key={cls} className={`${cls} flex-wrap justify-center gap-2 text-xs`}>
+                {tips.map(([t, d]) => (
+                  <li
+                    key={t}
+                    className="rounded-full px-3 py-1.5"
+                    style={{ background: dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)" }}
+                  >
+                    <b className="font-semibold">{t}</b> · {d}
+                  </li>
+                ))}
+              </ul>
+            ))}
           </div>
         )}
+
+        {/* Notifiche */}
+        <div className="absolute inset-x-0 top-16 flex justify-center px-2 lg:top-[4.5rem]">
+          <Toast toast={toast} onDone={clearToast} />
+        </div>
       </div>
+
+      {library && <BoardsDrawer wb={wb} ui={ui} onClose={() => setLibrary(false)} onImport={() => fileRef.current?.click()} notify={notify} />}
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        onChange={(e) => {
+          void onFile(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
     </div>
   );
 }
