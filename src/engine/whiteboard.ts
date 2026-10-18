@@ -1358,7 +1358,8 @@ export class Whiteboard {
     if (mod) {
       switch (k) {
         case "z":
-          e.shiftKey ? this.redo() : this.undo();
+          if (e.shiftKey) this.redo();
+          else this.undo();
           break;
         case "y":
           this.redo();
