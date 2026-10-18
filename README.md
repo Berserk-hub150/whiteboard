@@ -68,3 +68,9 @@ Il documento è un array di elementi **immutabili** in coordinate mondo: l'undo 
 Il rendering avviene solo quando serve (`requestAnimationFrame` su richiesta), con culling sul viewport.
 
 `@use-gesture/react` e `react-color` non sono più usati: puoi toglierli con `npm uninstall @use-gesture/react react-color`.
+
+## Favicon e condivisione
+
+Icone e anteprime usano le convenzioni file di Next in `src/app`: `favicon.ico`, `icon.svg`, `apple-icon.png`,
+`opengraph-image.png`, `twitter-image.png`, `manifest.ts`. I meta tag (Open Graph, Twitter, theme-color) sono in `layout.tsx`.
+In produzione imposta `NEXT_PUBLIC_SITE_URL` (es. `https://tuodominio.it`) per avere URL assoluti nelle anteprime.
